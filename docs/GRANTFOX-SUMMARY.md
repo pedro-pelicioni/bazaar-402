@@ -59,6 +59,6 @@ Built against SCF #45, RFP Track — *"X402 Facilitator with Bazaar (discovery) 
 
 **What we deliberately did not build:** no on-chain registry (the RFP itself calls it an optional stretch and explains the rent/TTL and doubled-settlement cost), no mainnet, no audit, and no `upto` implementation — that scheme has an active design discussion opened on 3 August 2026 that deserves a considered answer, not a rushed one.
 
-Apache-2.0, public from the first commit. **11 settled testnet transactions, 70/70 tests passing.**
+Apache-2.0, public from the first commit. **14 settled testnet transactions, 70/70 tests passing.**
 
 The point was not to win a weekend. It was to leave behind a piece of public infrastructure the Stellar ecosystem is currently missing, permissively licensed, that anyone can fork and run.

@@ -19,3 +19,6 @@ and appended to by `scripts/demo-loop.mjs`.
 | cleanup: remove legacy PREGO trustline (SELLER) | `01fee0b5c53a4f94cf9b76ff8155aa8b126d4f6fbff92328d800534c3d6a4f76` | https://stellar.expert/explorer/testnet/tx/01fee0b5c53a4f94cf9b76ff8155aa8b126d4f6fbff92328d800534c3d6a4f76 |
 | cleanup: return 10000.0000000 PREGO to issuer (PAYER) | `b5a8fd3b5239a2eb8ae026046dff453c6f1a665091a58da31b026fe123b8258b` | https://stellar.expert/explorer/testnet/tx/b5a8fd3b5239a2eb8ae026046dff453c6f1a665091a58da31b026fe123b8258b |
 | cleanup: remove legacy PREGO trustline (PAYER) | `412d5840441e415f19298c22d2653c1db779220191e3f0bd4c13f49b760a3c58` | https://stellar.expert/explorer/testnet/tx/412d5840441e415f19298c22d2653c1db779220191e3f0bd4c13f49b760a3c58 |
+| demo: postal-code lookup | `43af892d31c2a961b21f99eba43f4f7da14af36656fb5c0b81a6e49ee86c2787` | https://stellar.expert/explorer/testnet/tx/43af892d31c2a961b21f99eba43f4f7da14af36656fb5c0b81a6e49ee86c2787 |
+| demo: fx usd-brl | `4b4336dd58d871453f11606ba37ace4f12f8c244d9bc2e10ce8d94663a2c12e5` | https://stellar.expert/explorer/testnet/tx/4b4336dd58d871453f11606ba37ace4f12f8c244d9bc2e10ce8d94663a2c12e5 |
+| demo: ocr invoice | `5e49e77232de345a5f5fed5d5b4fd5925b305c00bf35ec2ea272d1493306ca2e` | https://stellar.expert/explorer/testnet/tx/5e49e77232de345a5f5fed5d5b4fd5925b305c00bf35ec2ea272d1493306ca2e |

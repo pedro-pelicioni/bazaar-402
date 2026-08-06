@@ -460,9 +460,14 @@ app.post("/settle", async (req, res) => {
       if (discovery) {
         try {
           const record = toCatalogRecord(paymentPayload, paymentRequirements, discovery);
-          const prior = catalog
-            .list({ limit: 1000 })
-            .items.find((i) => i.id === record.id);
+          // Prefer the O(1) keyed lookup. The previous `list({ limit: 1000 })` scan was
+          // silently capped at the catalog's MAX_LIMIT of 100 — harmless while the index
+          // held three records, but now that it boots seeded a resource beyond the first
+          // page would look brand new and have its settlement history reset on every
+          // settle. `list` stays as the fallback for the in-memory stub, which has no get().
+          const prior =
+            catalog.get?.(record.id) ??
+            catalog.list({ limit: 100 }).items.find((i) => i.id === record.id);
           if (prior) record.settlements = (prior.settlements ?? 0) + 1;
 
           const up = catalog.upsert(record);

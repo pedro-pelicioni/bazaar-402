@@ -8,7 +8,7 @@
 
 **The facilitator-side Bazaar discovery layer for x402 — the piece that does not exist in public code today — and the whole payment loop around it, running end to end on Stellar testnet.**
 
-`Apache-2.0` · `stellar:testnet` · **11 settled transactions** · **70/70 tests passing**
+`Apache-2.0` · `stellar:testnet` · **14 settled transactions** · **70/70 tests passing**
 
 Stellar Summit SP 2026 — sub-lane 3A, Agentic Payments (x402 / MPP)
 
