@@ -1,6 +1,6 @@
 # GrantFox — Stellar Summit SP 2026 · Sub-lane 3A submission text
 
-**Repository:** https://github.com/pedro-pelicioni/bazaar-402
+**Repository:** https://github.com/pedro-pelicioni/sextant
 
 ---
 

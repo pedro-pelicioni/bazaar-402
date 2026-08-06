@@ -124,6 +124,39 @@ try {
 const catalog = indexPkg.createCatalog();
 
 // ---------------------------------------------------------------------------
+// Catalog seeding — a bazaar index with three entries makes discovery look like a toy
+// and makes the ranker invisible. Load the demo corpus from packages/index/src/seed.mjs
+// BEFORE any route is mounted, so the index is never observed in a half-seeded state.
+//
+// Ordering guarantees the live resources win: seeding happens here at boot, while the
+// seller announces its real routes afterwards over POST /discovery/resources. `upsert`
+// is keyed by id, so a live announcement overwrites any seed record sharing its id and
+// clears the `seeded` flag with it. Seed records are additionally pinned to
+// `settlements: 0` (see asSeedRecord) so they can never inflate an observed-settlement
+// total. Set SEED_CATALOG=0 to boot an empty index.
+// ---------------------------------------------------------------------------
+
+const seedEnabled = process.env.SEED_CATALOG !== "0";
+
+if (seedEnabled) {
+  try {
+    const { seedCatalog } = await import("../../../packages/index/src/seed.mjs");
+    const summary = seedCatalog(catalog);
+    console.log(
+      `[index] seeded ${summary.inserted} demo records (catalog size ${catalog.size()})`,
+    );
+    if (summary.rejected?.length) {
+      console.warn(`[index] ${summary.rejected.length} seed record(s) rejected:`);
+      for (const r of summary.rejected) console.warn(`[index]   ${r.url} — ${r.reason}`);
+    }
+  } catch (e) {
+    console.warn(`[index] catalog seeding skipped (${e.message}) — index starts empty`);
+  }
+} else {
+  console.log("[index] catalog seeding disabled (SEED_CATALOG=0)");
+}
+
+// ---------------------------------------------------------------------------
 // x402 wiring — all cryptography delegated to @x402/stellar (Apache-2.0).
 // FEEPAYER signs AND acts as feeBumpSigner, so the paying agent needs zero XLM.
 // ---------------------------------------------------------------------------

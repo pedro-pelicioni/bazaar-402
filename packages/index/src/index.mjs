@@ -218,6 +218,12 @@ export function createCatalog(options = {}) {
       output,
       ...(routeTemplate ? { routeTemplate } : {}),
       extensions: asArray(record.extensions).length ? asArray(record.extensions) : ['bazaar'],
+      // Provenance. `seeded: true` marks a record that exists for catalog breadth only —
+      // nobody ever paid for it — so a consumer can never present it as a live,
+      // settle-backed resource. Deliberately NOT sticky: the flag is re-derived from the
+      // incoming record on every upsert, so a live announcement for the same id (which
+      // carries no flag) clears it and the real resource wins.
+      ...(record.seeded === true ? { seeded: true } : {}),
       // Monotonic merge: re-observing a resource never loses settlement history and
       // never moves lastSeenAt backwards.
       lastSeenAt: previous ? Math.max(previous.lastSeenAt, incomingLastSeen) : incomingLastSeen,

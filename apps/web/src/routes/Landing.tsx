@@ -10,7 +10,7 @@ import { explorerTx, shortHash } from '../lib/format'
 import { rank } from '../lib/rank'
 import type { Catalog } from '../lib/types'
 
-const GITHUB = 'https://github.com/pedro-pelicioni/bazaar-402'
+const GITHUB = 'https://github.com/pedro-pelicioni/sextant'
 
 export default function Landing() {
   const [cat, setCat] = useState<Catalog>(() => demoCatalog())

@@ -1,76 +1,121 @@
 <div align="center">
 
+<img src="apps/web/public/assets/lot-mark.png" width="88" alt="SEXTANT">
+
 # SEXTANT
 
-**Find what to pay for on Stellar.**
+### Find *what to pay for* on Stellar.
 
-Discovery for the x402 economy — the facilitator-side Bazaar index, and the whole loop around it.
+**The facilitator-side Bazaar discovery layer for x402 — the piece that does not exist in public code today — and the whole payment loop around it, running end to end on Stellar testnet.**
 
-`Apache-2.0` · `stellar:testnet` · Stellar Summit SP 2026 — sub-lane 3A, Agentic Payments (x402 / MPP)
+`Apache-2.0` · `stellar:testnet` · **11 settled transactions** · **70/70 tests passing**
+
+Stellar Summit SP 2026 — sub-lane 3A, Agentic Payments (x402 / MPP)
 
 </div>
 
+<br>
+
+![SEXTANT landing page](docs/screenshots/landing.png)
+
 ---
 
-> A **sextant** fixes your position by the stars. It does not move you — it tells you where
-> you are and what bearing to take. An agent holding money and an HTTP client has the same
-> problem: it can pay, but it cannot yet see what is out there to pay for.
+## For evaluators — verify this in 60 seconds
+
+You do not have to take any claim in this README on trust. Every one of them is checkable:
+
+| Claim | How to check it | Time |
+|---|---|---|
+| Payments really settle on Stellar | Open [`c1acc578…`](https://stellar.expert/explorer/testnet/tx/c1acc578032a3a06a88603f971d871703f45b1246e0f1aa8862500495edbfba6) → `successful: true` | 10s |
+| The buyer needs **zero XLM** — fees are sponsored | On that transaction, `fee_account` is the facilitator's `FEEPAYER`, not the payer | 15s |
+| Catalog integrity is real, not decorative | `npm test` → 70 passed, 0 failed (66 of them adversarial) | 30s |
+| **You can actually run it** | `npm install && npm run setup` — no captcha, no faucet, no API key | 2 min |
+
+That last row is the one worth pausing on. Almost every x402-on-Stellar project requires a
+Circle faucet captcha **and** an OpenZeppelin Channels API key before it will start. This one
+requires neither, by design — see [Two blockers removed](#two-blockers-removed-by-design).
+
+---
 
 ## Why this is not another paywall demo
 
-The sub-lane brief offers five example builds. Four of them are variations on the same
-thing: an agent paying for an API, a metered service, a channel-mode feed, a middleware kit.
-They are good examples. They are also all built on ground that is **already solved** — the
-RFP for SCF #45 says so in plain language: *"settlement on Stellar is largely solved; the
-novel work is discovery, the agent facing interface, the upto scheme upstream, and
-conformance that holds as the spec moves."*
+The sub-lane brief offers five example builds. Four are variations on one idea: an agent
+paying for an API, a metered service, a channel-mode feed, a middleware kit. They are good
+examples. They are also built on ground that is **already solved**, and the SCF #45 RFP says
+so in plain language:
 
-So we did not build a payment demo. We built the part that is missing, and then built the
-payment demo around it so you can see the missing part actually working.
+> *"settlement on Stellar is largely solved; the novel work is discovery, the agent facing
+> interface, the upto scheme upstream, and conformance that holds as the spec moves."*
 
-**SEXTANT is scoped against [SCF #45, RFP Track — "X402 Facilitator with Bazaar (discovery)
-support"](https://communityfund.stellar.org/), which names the Bazaar discovery layer as the
-highest-value part of the scope and says it should carry the largest share of the budget.**
-Every component below maps to a numbered requirement in that RFP, and the repository is
-structured so each one can be pointed at directly:
+So we did not build a payment demo. **We built the part that is missing, then built the
+payment demo around it** so you can watch the missing part work.
 
-| RFP requirement | What is in this repo | Status |
+### The gap, precisely
+
+| | |
+|---|---|
+| The [`bazaar` extension spec](https://github.com/x402-foundation/x402/blob/main/specs/extensions/bazaar.md) defines `/discovery/resources` and `/discovery/search` | ✅ exists |
+| `@x402/extensions/bazaar` implements them | ❌ **its own README states it ships only client and server helpers, and no facilitator-side catalog implementation** |
+| Stellar has a Bazaar | ❌ [`stellar/x402-stellar#50`](https://github.com/stellar/x402-stellar/issues/50) — *"Explore Bazaar support for Stellar"* — **open and unassigned since April 2026**. The SDF repo's Dockerfile still reads `bazaar not used` |
+
+An agent that can pay but cannot discover is an agent with a wallet and no map. SEXTANT is
+the map.
+
+---
+
+## What it looks like
+
+![SEXTANT discovery console](docs/screenshots/console.png)
+
+**The Sight Board.** Every result is a *sight* — the observation a navigator takes to fix
+position. Numbered, ranked, with a bearing readout, and a `_EXPLAIN` disclosure that breaks
+the score into BM25 / metadata completeness / settlements / recency, each with its numeric
+contribution and the matched terms with their `tf`, `idf` and field weight. Searching
+re-orders the board with a FLIP animation.
+
+**The Catalog Integrity ledger**, on the right, is live. It is not a mockup — those are real
+verdicts from the validator, timestamped:
+
+```
+REJECTED    route-template/traversal      /v1/parse/{id}/../../admin/keys
+            Traversal segment in route template — escapes the advertised resource prefix.
+SOFT-DROP   resource/icon-url-origin      http://198.51.100.7/icon.png
+            Icon URL off the resource origin and not TLS — field dropped, record kept.
+SOFT-DROP   resource/tags-cardinality     ["invoice","inv","invoices", … 96 more]
+            Tag flood (99 > 16). Overflow truncated.
+```
+
+That last line matters: the record **survives**. Soft drop means a hostile field is discarded
+and the legitimate metadata around it is kept — which is exactly what the spec requires and
+exactly the invariant that is easy to get wrong.
+
+---
+
+## Scoped against SCF #45, RFP Track
+
+SEXTANT is built against the RFP *"X402 Facilitator with Bazaar (discovery) support"*, which
+names the Bazaar discovery layer as the highest-value part of the scope and says it should
+carry the largest share of the budget. Every component maps to a numbered requirement:
+
+| RFP req. | In this repo | Status |
 |---|---|---|
-| **3.2 Bazaar discovery layer** — *"the core new capability"*, *"the hardest part of the scope"* | `packages/index` — spec-exact `/discovery/resources` and `/discovery/search`, BM25 hybrid ranking with a published formula and a per-result `_explain`, auto-cataloging from the discovery extension, soft-drop validation, `EXTENSION-RESPONSES` reporting | Working |
-| **3.2 catalog integrity** — *"the facilitator is a trust boundary"* | 66 adversarial tests: `routeTemplate` traversal under single/double/triple percent-encoding, `iconUrl` SSRF evasion, tag flooding, external `$ref` | 66/66 passing |
-| **3.1 Facilitator** — verify/settle/supported, fee sponsorship, self-facilitation | `apps/facilitator`, self-hosted on Apache-2.0 `@x402/stellar`, `extra.areFeesSponsored`, non-null reason on every rejection | Working, testnet |
-| **3.3 Agent-facing MCP interface** | `apps/agent` — 4 MCP tools with input **and** output schemas, 17-code error enum | Working, settled payments |
-| **3.6 Conformance** — *"drift, not inability, is the failure mode being screened for"* | Three wire-level divergences found by reading shipped code, documented below | Documented |
+| **3.2 Bazaar discovery layer** — *"the core new capability"*, *"the hardest part of the scope"* | `packages/index` — spec-exact `/discovery/resources` + `/discovery/search`, BM25 hybrid ranking with a published formula and per-result `_explain`, auto-cataloging from the discovery extension, soft-drop validation, `EXTENSION-RESPONSES` reporting | Working |
+| **3.2 catalog integrity** — *"the facilitator is a trust boundary"* | 66 adversarial tests: `routeTemplate` traversal under single / double / triple percent-encoding, `iconUrl` SSRF evasion, tag flooding, external `$ref` | 66/66 passing |
+| **3.1 Facilitator** — verify / settle / supported, fee sponsorship, self-facilitation | `apps/facilitator` — self-hosted on Apache-2.0 `@x402/stellar`, `extra.areFeesSponsored`, non-null reason on every rejection | Working, testnet |
+| **3.3 Agent-facing MCP interface** | `apps/agent` — 4 MCP tools with input **and** output schemas, 17-code error enum | Settled payments via MCP |
+| **3.6 Conformance** — *"drift, not inability, is the failure mode being screened for"* | Three wire-level divergences found by reading shipped code | [Documented below](#conformance-findings) |
 | **3.2 seller helpers** — per-parameter descriptions that make an endpoint legible to an agent | `apps/seller`, declared via `declareDiscoveryExtension` | Working |
 
-What this is **not**, and deliberately so: no on-chain registry (the RFP calls it an optional
-stretch and explains the rent/TTL cost), no mainnet, no audit, no `upto` implementation —
-that scheme has [an active design discussion](https://github.com/stellar/x402-stellar/issues/72)
-opened on 3 August 2026 that deserves a real answer rather than a rushed one.
+**What we deliberately did not build**, and why: no on-chain registry (the RFP itself calls
+it an optional stretch and explains the rent/TTL cost and the doubled settlement cost); no
+mainnet; no audit; no `upto` implementation — that scheme has [an active design
+discussion](https://github.com/stellar/x402-stellar/issues/72) opened on 3 August 2026 that
+deserves a considered answer rather than a rushed one.
 
-The point is not to win a weekend. It is to leave behind a piece of public infrastructure
-that the Stellar ecosystem is currently missing, licensed permissively, that anyone can fork
-and run.
+The point is not to win a weekend. It is to leave behind a piece of public infrastructure the
+Stellar ecosystem is currently missing, permissively licensed, that anyone can fork and run.
 
-## The problem
-
-On Stellar, x402 **settlement** is solved. The Apache-2.0 [`@x402/stellar`](https://www.npmjs.com/package/@x402/stellar)
-package (v2.21.0, published 4 Aug 2026) ships `verify` and `settle` for the `exact` scheme,
-[`scheme_exact_stellar.md`](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_stellar.md)
-is stable, and the SDF publishes a reference facilitator.
-
-**Discovery is not.** And without discovery, an agent has no way to know *what* to pay for.
-
-- The [`bazaar` extension spec](https://github.com/x402-foundation/x402/blob/main/specs/extensions/bazaar.md)
-  defines `/discovery/resources` and `/discovery/search` — but it is only a spec.
-- The upstream `@x402/extensions/bazaar` package states in its own README that it ships
-  **only client and server helpers, and no facilitator-side catalog implementation**.
-- [`stellar/x402-stellar#50` — *Explore Bazaar support for Stellar*](https://github.com/stellar/x402-stellar/issues/50)
-  has been **open and unassigned since April 2026**. The SDF repo's Dockerfile still carries
-  the comment `bazaar not used`.
-
-**SEXTANT builds the missing piece** — and the entire loop around it, vertically integrated
-and running end to end on `stellar:testnet`.
+---
 
 ## Architecture
 
@@ -83,84 +128,76 @@ and running end to end on `stellar:testnet`.
                       stellar:testnet
 ```
 
-| Component | What it is | SCF #45 RFP requirement |
-|---|---|---|
-| `packages/index` | Catalog + BM25 hybrid search with explainable ranking, plus catalog-integrity validation | **3.2** — the RFP's highest-value scope |
-| `apps/facilitator` | **Self-hosted** x402 facilitator on `@x402/stellar`, sponsoring network fees | **3.1** |
-| `apps/seller` | Paid API declaring discovery metadata with per-parameter descriptions | **3.2** — seller helpers |
-| `apps/agent` | MCP server + client: discover → 402 → pay → consume | **3.3** |
-| `apps/web` | Landing page + live console with the Sight Board and the payment loop | — |
-| `test/` | Adversarial catalog-poisoning suite | **3.2** integrity, **3.6** conformance |
+| Component | What it is |
+|---|---|
+| `packages/index` | Catalog + BM25 hybrid search with explainable ranking, catalog-integrity validation |
+| `apps/facilitator` | Self-hosted x402 facilitator on `@x402/stellar`, sponsoring network fees |
+| `apps/seller` | Paid API declaring discovery metadata with per-parameter descriptions |
+| `apps/agent` | MCP server + payment client + narrated CLI |
+| `apps/web` | Landing page and live console |
+
+---
 
 ## Two blockers removed by design
 
-This was built in a single afternoon. The two things that normally stall an x402 setup on
-Stellar were eliminated — not by shortcut, but by decisions that are also architecturally
-better:
+Built in a single afternoon. The two things that normally stall an x402 setup on Stellar were
+eliminated — not by shortcut, but by decisions that are also architecturally better.
 
 **1. No faucet, no captcha.** Rather than depending on Circle's web faucet for testnet USDC,
 SEXTANT **issues its own SEP-41 asset** (`SXT`) and wraps it in a SAC. The Stellar `exact`
 scheme accepts any SEP-41 token — USDC is only the default. `npm run setup` therefore runs
 start to finish with no web forms and no API keys.
 
-**2. No third-party facilitator.** The facilitator is **self-hosted**, built on the
-Apache-2.0 package. That removes any dependency on the OpenZeppelin Relayer / OZ Channels —
-which is **AGPL-3.0-or-later**, and therefore unusable by any project that needs a permissive
-license — while demonstrating the self-facilitation path the RFP asks for in 3.1.
+**2. No third-party facilitator.** The facilitator is **self-hosted** on the Apache-2.0
+package. That removes any dependency on the OpenZeppelin Relayer / OZ Channels — which is
+**AGPL-3.0-or-later**, and therefore unusable by any project needing a permissive license —
+while demonstrating the self-facilitation path the RFP asks for in 3.1.
 
 The `FEEPAYER` account sponsors network fees, so the paying agent needs **zero XLM**.
+
+---
 
 ## Running it
 
 ```bash
 npm install
 npm run setup      # generates accounts, issues the SXT asset, adds trustlines — all testnet
-npm run dev:all    # facilitator :4021 · index :4022 · seller :4023 · web :5173
+npm run dev:all    # facilitator :4021 · index :4022 · seller :4023
+npm run dev:web    # console + landing on :5173
 npm run demo       # full loop: discover → 402 → sign → settle → 200
+npm test           # 70 tests
 ```
 
 No API keys. No captcha. No mainnet. No real money.
 
+---
+
 ## Search ranking
 
-The SCF #45 RFP states that search quality is the hardest part of the scope and the part
-existing catalogs most often leave unimplemented. We agree — so the ranking here is not a
-`.includes()` filter:
+The RFP states that search quality is the hardest part of the scope and the part existing
+catalogs most often leave unimplemented. So the ranking here is not a `.includes()` filter:
 
-- **BM25** (k1=1.2, b=0.75) over a field-weighted document: service name, description, tags,
-  parameter names and their per-parameter descriptions, output format, URL path segments.
-- **Accent-folding tokenization** — Unicode normalization strips diacritics before indexing,
-  so a query matches regardless of how it is typed.
-- **A quality signal** — metadata completeness, `log1p(settlements)`, and recency decay.
-- **Per-result `_explain`** — the console shows *why* each result ranked where it did.
+- **BM25**, `k1 = 1.2`, `b = 0.75`, over a field-weighted document — `serviceName` ×3,
+  `description` ×2, `tags` ×2, parameter names and their per-parameter descriptions ×2,
+  `output.format` ×1, URL path segments ×1.
+- **Blend:** `1.00·bm25 + 0.12·completeness + 0.08·popularity + 0.05·recency`. The quality
+  prior caps at **0.25** against relevance's **1.00** — quality breaks ties, it never
+  overrides relevance. A test asserts that a 900k-settlement record loses to a
+  zero-settlement, 200-day-stale record when the query matches the latter.
+- **`_explain` per result**, with the four parts asserted by test to sum exactly to `_score`.
 
-The honest cold-start problem and the proposed evaluation method (nDCG@10, Recall@20, MRR
-over a labeled query set) are written up in [`docs/SEARCH-QUALITY.md`](docs/SEARCH-QUALITY.md).
+[`docs/SEARCH-QUALITY.md`](docs/SEARCH-QUALITY.md) documents the retrieval rationale, an
+nDCG@10 / Recall@20 / MRR evaluation plan with pooled graded labels, and an explicit
+cold-start section stating plainly that popularity is worthless at launch and gameable
+forever — with four unimplemented mitigations ranked.
 
-## Catalog integrity
-
-The facilitator is a **trust boundary**. Clients echo the `resource` block back inside the
-payment payload, so every discovery field is attacker-controlled. We implement the spec's
-soft-drop rules and test them adversarially:
-
-- **`routeTemplate`** — the normative regex `^/[a-zA-Z0-9_/:.\-~%]+$` **permits `%`**, so the
-  `..` check must run **after percent-decoding**, including against double-encoding
-  (`%252e%252e`). Tested.
-- **`iconUrl`** — SSRF evasions: `127.0.0.1`, decimal `2130706433`, `[::1]`, `0.0.0.0`,
-  `data:`. Tested.
-- **`serviceName` / `tags`** — control characters, length caps, case-insensitive dedupe, and
-  the invariant that matters: **an invalid field is dropped, the surrounding metadata
-  survives**. Tested.
-
-```bash
-npm test
-```
+---
 
 ## Conformance findings
 
 We built against the shipped code rather than the documentation, and reading the published
 `dist` output turned up three places where the wire format has moved and the surrounding
-material has not. All three are handled in this repo; all three are worth an upstream issue.
+material has not. All three are handled here; all three are worth an upstream issue.
 
 1. **x402 v2 `PaymentRequirements` uses `amount`, not `maxAmountRequired`.** Resource
    metadata also moved to `PaymentRequired.resource` as a `ResourceInfo`. The v1 layout is
@@ -169,16 +206,38 @@ material has not. All three are handled in this repo; all three are worth an ups
    header and is still what much of the surrounding documentation instructs. Our client sends
    both.
 3. **`@x402/core` accepts a challenge in the JSON body only for v1.** For v2 it expects the
-   `PAYMENT-REQUIRED` header. A v2 resource server that answers 402 with a body — which is
-   the natural reading — is unreachable by a stock client. We added an `accepts`-array body
-   fallback; without it the paid loop was dead on arrival against our own seller.
+   `PAYMENT-REQUIRED` header. A v2 resource server that answers 402 with a body — the natural
+   reading — is unreachable by a stock client. We added an `accepts`-array body fallback;
+   without it the paid loop was dead on arrival against our own seller.
 
-Point 3 in particular is the class of defect that only surfaces when an unmodified client is
-pointed at an independent server, which is exactly the acceptance test the RFP specifies.
+Point 3 is the class of defect that only surfaces when an unmodified client is pointed at an
+independent server — which is exactly the acceptance test the RFP specifies.
+
+---
+
+## Catalog integrity
+
+The facilitator is a **trust boundary**. Clients echo the `resource` block back inside the
+payment payload, so every discovery field is attacker-controlled.
+
+- **`routeTemplate`** — the normative regex `^/[a-zA-Z0-9_/:.\-~%]+$` **permits `%`**, so the
+  `..` check must run **after percent-decoding**, and must survive double and triple encoding
+  (`%252e%252e`). Malformed `%` fails closed.
+- **`iconUrl`** — SSRF evasions: `127.0.0.1`, decimal `2130706433`, `0x7f.1`, `0177.0.0.1`,
+  `[::1]`, `0.0.0.0`, `169.254.169.254`, percent-encoded hosts, userinfo tricks, and the
+  `data:` / `file:` / `javascript:` schemes.
+- **`serviceName` / `tags`** — control characters, RTL override, length caps, dedupe before
+  cap, and the survival invariant: an invalid field is dropped, the surrounding metadata
+  is kept.
+
+Each test cites the spec rule it enforces.
+
+---
 
 ## Testnet transactions
 
-Real hashes produced by this code, with explorer links: [`docs/TESTNET-TXS.md`](docs/TESTNET-TXS.md).
+Real hashes produced by this code, with explorer links:
+[`docs/TESTNET-TXS.md`](docs/TESTNET-TXS.md).
 
 ## License
 
@@ -187,5 +246,9 @@ Apache-2.0, public from the first commit.
 ---
 
 <div align="center">
+
+**[github.com/pedro-pelicioni/sextant](https://github.com/pedro-pelicioni/sextant)**
+
 Built in São Paulo for Stellar Summit SP 2026.
+
 </div>

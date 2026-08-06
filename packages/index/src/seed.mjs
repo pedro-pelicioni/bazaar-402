@@ -676,6 +676,26 @@ export const SEED_RECORDS = [
 ];
 
 /**
+ * Stamp the provenance of a demo record before it enters a live catalog.
+ *
+ * A seeded record is catalog BREADTH: it makes discovery and ranking demonstrable on a
+ * cold index, but no payment was ever settled against it. Two adjustments keep that
+ * honest next to the seller's real, payable resources:
+ *
+ *   - `seeded: true` — an explicit flag any consumer can label or filter on.
+ *   - `settlements: 0` — the per-record counts above are illustrative, not observed.
+ *     Left as authored they would inflate any "settlements observed" total that sums
+ *     across the catalog into a number that never happened.
+ *
+ * `lastSeenAt` is kept exactly as authored: it is what gives the catalog its realistic
+ * freshness spread (and drives the recency signal in rank.mjs), and unlike a settlement
+ * count it is not a claim about money.
+ */
+export function asSeedRecord(rec) {
+  return { ...rec, settlements: 0, seeded: true };
+}
+
+/**
  * seedCatalog(catalog) -> { inserted, rejected, dropped }
  * Every record goes through the same `upsert` validation path as live traffic.
  */
@@ -684,7 +704,7 @@ export function seedCatalog(catalog) {
   const rejected = [];
   const dropped = [];
   for (const rec of SEED_RECORDS) {
-    const r = catalog.upsert(rec);
+    const r = catalog.upsert(asSeedRecord(rec));
     if (r.ok) inserted++;
     else rejected.push({ url: rec?.resource?.url, reason: r.reason });
     if (r.dropped?.length) dropped.push({ url: rec?.resource?.url, dropped: r.dropped });
@@ -750,4 +770,4 @@ if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).
   console.log(`[sextant] wrote ${r.count} records to ${r.path}`);
 }
 
-export default { SEED_RECORDS, seedCatalog, buildSeededRecords, writeFixture };
+export default { SEED_RECORDS, asSeedRecord, seedCatalog, buildSeededRecords, writeFixture };
