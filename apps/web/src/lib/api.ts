@@ -2,7 +2,7 @@ import fixtureRaw from '../data/fixture.json'
 import txsRaw from '../data/testnet-txs.json'
 import integrityRaw from '../data/integrity.json'
 import { rank } from './rank'
-import type { Catalog, IntegrityEntry, SextantRecord, TxEntry } from './types'
+import type { Catalog, Explain, ExplainKey, IntegrityEntry, SextantRecord, TxEntry } from './types'
 
 export const INDEX_URL: string =
   (import.meta.env.VITE_INDEX_URL as string | undefined)?.replace(/\/$/, '') ??
@@ -48,10 +48,136 @@ function pickIntegrity(payload: unknown): IntegrityEntry[] {
   return []
 }
 
+/* ------------------------------------------------------------------ _explain */
+
+const num = (v: unknown, fallback = 0): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : fallback
+
+const round = (n: number, dp: number): number => {
+  const f = 10 ** dp
+  return Math.round(n * f) / f
+}
+
+const obj = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {}
+
+const PART_KEYS: ExplainKey[] = ['bm25', 'metadata', 'settlements', 'recency']
+
+/**
+ * The index speaks its own `_explain` dialect: `parts` is an *object*
+ * (`{relevance, completeness, popularity, recency}`), each term carries
+ * `contribution` plus a `fields` array, and there is no `total` at all. The
+ * board renders the local ranker's dialect: `parts` as an ordered array of
+ * `{key, value, detail}` and terms with a single `field`/`weight`.
+ *
+ * Translating here — at the edge — means nothing downstream has to know which
+ * ranker produced a row. The index knows strictly more than the local ranker
+ * (true corpus-wide `df`, every field a term hit, the exact k1/b in force), so
+ * the live path renders a richer panel than the fallback, not a poorer one.
+ */
+function normalizeTerms(raw: unknown): Explain['terms'] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((t) => {
+      const o = obj(t)
+      const fields = Array.isArray(o.fields) ? o.fields.map((f) => String(f)).filter(Boolean) : []
+      const field =
+        (typeof o.field === 'string' && o.field) || fields.join(' + ') || 'unscored field'
+      // the index calls it `contribution`; the local ranker calls it `weight`
+      const weight = num(o.weight, num(o.contribution))
+      const term: Explain['terms'][number] = {
+        term: String(o.term ?? ''),
+        field,
+        tf: round(num(o.tf), 2),
+        idf: round(num(o.idf), 2),
+        weight: round(weight, 3),
+      }
+      if (typeof o.df === 'number' && Number.isFinite(o.df)) term.df = o.df
+      return term
+    })
+    .filter((t) => t.term)
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 6)
+}
+
+/**
+ * Returns `undefined` when there is nothing usable, so the caller can fall back
+ * to the local ranker. Every field is optional on the way in: a missing signal
+ * degrades to zero rather than throwing.
+ */
+function normalizeExplain(raw: unknown, score?: unknown): Explain | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const ex = raw as Record<string, unknown>
+
+  // Already the board's dialect (local ranker, or an index that adopted it).
+  if (Array.isArray(ex.parts)) {
+    const parts = ex.parts.map((p) => {
+      const o = obj(p)
+      return {
+        key: (PART_KEYS.includes(o.key as ExplainKey) ? o.key : String(o.key ?? '')) as ExplainKey,
+        value: num(o.value),
+        detail: String(o.detail ?? ''),
+      }
+    })
+    const summed = parts.reduce((a, p) => a + p.value, 0)
+    return {
+      total: num(ex.total, summed || num(score)),
+      parts,
+      terms: normalizeTerms(ex.terms),
+    }
+  }
+
+  const sParts = obj(ex.parts)
+  const quality = obj(ex.quality)
+  const weights = obj(ex.weights)
+  const detail = obj(quality.completenessDetail)
+  const matched = Array.isArray(ex.matchedFields)
+    ? ex.matchedFields.map((f) => String(f)).filter(Boolean)
+    : []
+
+  const bm25 = num(ex.bm25)
+  const bm25Norm = num(ex.bm25Norm)
+  const filled = Object.keys(detail).filter((k) => num(detail[k]) >= 1)
+  const missing = Object.keys(detail).filter((k) => num(detail[k]) < 1)
+  const settlements = num(quality.settlements)
+  const ageDays = num(quality.ageDays)
+
+  const parts: Explain['parts'] = [
+    {
+      key: 'bm25',
+      value: num(sParts.relevance),
+      detail: bm25
+        ? `BM25 ${bm25.toFixed(2)} → ${bm25Norm.toFixed(3)} norm · k1=${num(weights.k1, 1.2)} b=${num(weights.b, 0.75)}${matched.length ? ` · hit ${matched.join(', ')}` : ''}`
+        : 'no query terms matched — text contributes nothing',
+    },
+    {
+      key: 'metadata',
+      value: num(sParts.completeness),
+      detail: Object.keys(detail).length
+        ? `${filled.length}/${Object.keys(detail).length} complete${missing.length ? ` · missing ${missing.join(', ')}` : ' — advertisement complete'}`
+        : `completeness ${num(quality.completeness).toFixed(2)}`,
+    },
+    {
+      key: 'settlements',
+      value: num(sParts.popularity),
+      detail: `${settlements.toLocaleString('en-US')} settlements observed → ${num(quality.popularity).toFixed(3)} log-scaled`,
+    },
+    {
+      key: 'recency',
+      value: num(sParts.recency),
+      detail: `last seen ${ageDays < 0.05 ? 'today' : `${ageDays.toFixed(2)} d ago`} · decay ${num(quality.recency).toFixed(3)}`,
+    },
+  ]
+
+  const summed = parts.reduce((a, p) => a + p.value, 0)
+  return { total: round(summed || num(score), 4), parts, terms: normalizeTerms(ex.terms) }
+}
+
 /** Guard against a partly-filled record so one bad row can never blank the board. */
 function sane(r: SextantRecord): SextantRecord {
   const url = r?.resource?.url ?? r?.id ?? 'unknown://resource'
-  return {
+  const explain = normalizeExplain(r?._explain, (r as { _score?: unknown })?._score)
+  const out: SextantRecord = {
     ...r,
     id: r?.id ?? url,
     resource: {
@@ -71,6 +197,11 @@ function sane(r: SextantRecord): SextantRecord {
     lastSeenAt: Number(r?.lastSeenAt) || Date.now(),
     settlements: Number(r?.settlements) || 0,
   }
+  // `...r` carried the index's raw dialect through; replace it with the board's,
+  // or drop it entirely so the caller knows to rank locally instead.
+  if (explain) out._explain = explain
+  else delete out._explain
+  return out
 }
 
 /**
@@ -163,7 +294,11 @@ export async function search(
       const payload = await getJSON(`/discovery/search?query=${encodeURIComponent(query)}&limit=20`)
       const items = pickItems(payload).map(sane)
       if (items.length) {
-        const explained = items.map((r, i) => (r._explain ? r : { ...r, ...rank(query, [r])[0], _rank: i }))
+        // `sane` has already translated any index-supplied `_explain` into the
+        // board's dialect. Only rank locally for rows the index did not explain.
+        const explained = items.map((r, i) =>
+          r._explain?.parts?.length ? r : { ...r, ...rank(query, [r])[0], _rank: i },
+        )
         return {
           items: explained as SextantRecord[],
           source: 'live',

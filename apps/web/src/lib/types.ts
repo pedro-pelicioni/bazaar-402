@@ -36,7 +36,19 @@ export type SextantRecord = {
 export type Explain = {
   total: number
   parts: { key: ExplainKey; value: number; detail: string }[]
-  terms: { term: string; field: string; tf: number; idf: number; weight: number }[]
+  terms: {
+    term: string
+    /** the field(s) the term hit — joined when the index reports several */
+    field: string
+    tf: number
+    idf: number
+    weight: number
+    /**
+     * Corpus-wide document frequency. Only the index knows this; the local
+     * ranker sees one document at a time, so it is absent on the fallback path.
+     */
+    df?: number
+  }[]
 }
 
 export type ExplainKey = 'bm25' | 'metadata' | 'settlements' | 'recency'

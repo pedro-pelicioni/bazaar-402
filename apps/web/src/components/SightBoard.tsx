@@ -19,40 +19,57 @@ const PART_COLOR: Record<ExplainKey, string> = {
 
 /* ------------------------------------------------------------------ explain */
 
+const num = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+
+/**
+ * The index and the local ranker disagree about the shape of `_explain` — the
+ * index sends `parts` as an object. api.ts reconciles them, but this is the
+ * last line of defence before render, so assume nothing.
+ */
+const explainParts = (ex: Explain | undefined): Explain['parts'] =>
+  Array.isArray(ex?.parts) ? ex.parts : []
+
 function ExplainPanel({ ex, id }: { ex: Explain; id: string }) {
+  // Belt and braces: api.ts normalizes every dialect into arrays, but a crash
+  // here is unrecoverable in front of an audience — never trust the shape.
+  const parts = explainParts(ex)
+  const terms = Array.isArray(ex.terms) ? ex.terms : []
+  const total = Number.isFinite(ex.total) ? ex.total : parts.reduce((a, p) => a + num(p.value), 0)
+
   return (
     <div className="explain" id={id}>
       <p className="explain__lead">Why this sight ranked here</p>
       <div className="explain__rows">
-        {ex.parts.map((p) => (
+        {parts.map((p) => (
           <div className="explain__row" key={p.key}>
-            <span className="explain__key">{PART_LABEL[p.key]}</span>
+            <span className="explain__key">{PART_LABEL[p.key] ?? p.key}</span>
             <span className="explain__meter">
               <i
                 style={{
-                  width: `${Math.min(100, (p.value / 0.55) * 100)}%`,
-                  background: PART_COLOR[p.key],
+                  width: `${Math.min(100, (num(p.value) / 0.55) * 100)}%`,
+                  background: PART_COLOR[p.key] ?? 'var(--fg-3)',
                 }}
               />
             </span>
             <span className="explain__detail" title={p.detail}>
               {p.detail}
             </span>
-            <span className="explain__val">{p.value.toFixed(3)}</span>
+            <span className="explain__val">{num(p.value).toFixed(3)}</span>
           </div>
         ))}
       </div>
       <div className="explain__total">
         <span>SCORE</span>
-        <b>{ex.total.toFixed(3)}</b>
-        <span>· bearing {bearing(ex.total)}</span>
-        <span>· {pct(ex.total)} of a perfect fix</span>
+        <b>{total.toFixed(3)}</b>
+        <span>· bearing {bearing(total)}</span>
+        <span>· {pct(total)} of a perfect fix</span>
       </div>
-      {ex.terms.length > 0 ? (
+      {terms.length > 0 ? (
         <div className="explain__terms">
-          {ex.terms.map((t) => (
+          {terms.map((t) => (
             <span className="term" key={`${t.term}-${t.field}`}>
-              <b>{t.term}</b> · {t.field} · tf {t.tf} · idf {t.idf} · +{t.weight}
+              <b>{t.term}</b> · {t.field} · tf {t.tf} · idf {t.idf}
+              {t.df === undefined ? '' : ` · df ${t.df}`} · +{t.weight}
             </span>
           ))}
         </div>
@@ -81,7 +98,7 @@ function Sight({
   const [open, setOpen] = useState(false)
   const ex = rec._explain
   const panelId = `explain-${index}`
-  const total = ex?.total ?? 0
+  const total = num(ex?.total)
 
   return (
     <article className={`sight${index === 0 ? ' sight--top' : ''}`}>
@@ -146,11 +163,11 @@ function Sight({
 
       {ex && (
         <div className="scorebar" title={`score ${total.toFixed(3)}`}>
-          {ex.parts.map((p) => (
+          {explainParts(ex).map((p) => (
             <span
               key={p.key}
               className={`scorebar__seg seg--${p.key}`}
-              style={{ width: `${p.value * 100}%` }}
+              style={{ width: `${num(p.value) * 100}%` }}
             />
           ))}
           <span className="scorebar__ticks">
