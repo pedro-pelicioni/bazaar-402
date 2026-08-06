@@ -4,12 +4,38 @@ import integrityRaw from '../data/integrity.json'
 import { rank } from './rank'
 import type { Catalog, Explain, ExplainKey, IntegrityEntry, SextantRecord, TxEntry } from './types'
 
+/**
+ * Where the discovery API lives.
+ *
+ *   VITE_INDEX_URL set  -> exactly that, always (an explicit override wins everywhere,
+ *                          and `VITE_INDEX_URL=""` is a legal way to force same-origin).
+ *   production build    -> '' — a same-origin RELATIVE base. The deployed site serves
+ *                          /discovery/* itself from api/discovery/*.mjs, so the console
+ *                          goes LIVE against its own origin with nothing to configure
+ *                          and no CORS hop.
+ *   dev server          -> http://localhost:4022, the port CONTRACT.md pins the index to.
+ *
+ * If the API is unreachable in either case, `loadCatalog`/`search` still fall back to the
+ * baked fixture and the pill reads DEMO. That path is unchanged.
+ */
+const CONFIGURED_INDEX_URL = import.meta.env.VITE_INDEX_URL as string | undefined
+
 export const INDEX_URL: string =
-  (import.meta.env.VITE_INDEX_URL as string | undefined)?.replace(/\/$/, '') ??
-  'http://localhost:4022'
+  typeof CONFIGURED_INDEX_URL === 'string'
+    ? CONFIGURED_INDEX_URL.replace(/\/$/, '')
+    : import.meta.env.PROD
+      ? ''
+      : 'http://localhost:4022'
 
 export const ASSET_CODE = 'SXT'
-const TIMEOUT_MS = 1400
+
+/**
+ * A local index answers in single-digit milliseconds, so 1.4s is generous. A serverless
+ * cold start is not: the first request after an idle period pays for module load plus
+ * seeding the catalog. Being too impatient there would show DEMO on a site that is
+ * actually LIVE, so production gets a longer leash.
+ */
+const TIMEOUT_MS = import.meta.env.PROD ? 4000 : 1400
 
 async function getJSON(path: string): Promise<unknown> {
   const ctrl = new AbortController()

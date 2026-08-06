@@ -9,6 +9,9 @@
     "./rank": "./src/rank.mjs",
     "./integrity": "./src/integrity.mjs",
     "./http": "./src/http.mjs",
+    "./discovery": "./src/discovery.mjs",
+    "./serverless": "./src/serverless.mjs",
+    "./store": "./src/store.mjs",
     "./seed": "./src/seed.mjs"
   },
   "files": [

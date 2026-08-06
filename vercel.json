@@ -4,7 +4,16 @@
   "installCommand": "npm install",
   "outputDirectory": "apps/web/dist",
   "framework": null,
+  "functions": {
+    "api/discovery/*.mjs": {
+      "includeFiles": "packages/index/src/**"
+    }
+  },
   "rewrites": [
+    { "source": "/discovery/resources", "destination": "/api/discovery/resources" },
+    { "source": "/discovery/search", "destination": "/api/discovery/search" },
+    { "source": "/discovery/health", "destination": "/api/discovery/health" },
+    { "source": "/discovery/:path*", "destination": "/api/discovery/:path*" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

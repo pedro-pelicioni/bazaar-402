@@ -1,0 +1,226 @@
+# Deploying SEXTANT
+
+The repo deploys as a **single Vercel project**: the Vite site in `apps/web` becomes the
+static output, and the three files in `api/discovery/` become Node.js Vercel Functions
+that serve the public x402 Bazaar discovery API.
+
+Nothing about local development changes. `npm run dev:all` still runs the index on
+`:4022` out of `apps/facilitator`, and the serverless handlers import the same
+`packages/index` modules rather than reimplementing anything.
+
+---
+
+## What gets deployed
+
+| Path | Served by | Notes |
+|---|---|---|
+| `/`, `/console`, assets | `apps/web/dist` | SPA, via the catch-all rewrite |
+| `GET /discovery/resources` | `api/discovery/resources.mjs` | filters + offset pagination |
+| `POST /discovery/resources` | `api/discovery/resources.mjs` | auto-cataloging — off unless configured |
+| `GET /discovery/search` | `api/discovery/search.mjs` | ranked, `partialResults`, cursor |
+| `GET /discovery/health` | `api/discovery/health.mjs` | mode, record count, commit |
+
+Everything under `/discovery/*` belongs to the API. An unknown path there returns 404
+rather than the single-page app.
+
+### Routing, and the trap in it
+
+`vercel.json` ends with the SPA catch-all `"/(.*)" → "/index.html"`. **Rewrites are
+evaluated in order and the first match wins**, so a catch-all placed above the discovery
+rules would swallow every API request and return HTML with a 200. The discovery rewrites
+are therefore listed first and the catch-all is last:
+
+```json
+"rewrites": [
+  { "source": "/discovery/resources", "destination": "/api/discovery/resources" },
+  { "source": "/discovery/search",    "destination": "/api/discovery/search" },
+  { "source": "/discovery/health",    "destination": "/api/discovery/health" },
+  { "source": "/discovery/:path*",    "destination": "/api/discovery/:path*" },
+  { "source": "/(.*)",                "destination": "/index.html" }
+]
+```
+
+`npm run verify:api` asserts that ordering against the real `vercel.json` — if anyone ever
+moves the catch-all up, that check fails.
+
+---
+
+## First deploy
+
+```bash
+npm i -g vercel     # or use npx
+vercel login
+vercel link         # from the repo root
+vercel --prod
+```
+
+Or connect the GitHub repo in the Vercel dashboard and push to `main`.
+
+**Project settings that must be right:**
+
+- **Root Directory** — the repository root (*not* `apps/web`). The `api/` directory and
+  `packages/index` both live above `apps/web`; pointing the root at `apps/web` hides them
+  and the discovery endpoints will 404.
+- **Framework Preset** — *Other*. `vercel.json` already pins `buildCommand`,
+  `installCommand` and `outputDirectory`.
+- **Node.js version** — 22.x.
+
+Everything else is in `vercel.json` and needs no dashboard equivalent.
+
+---
+
+## Environment variables
+
+**None are required.** With an empty environment the API serves a read-only catalog
+seeded from `packages/index/src/seed.mjs` at cold start. That is the intended baseline: a
+public Bazaar that answers out of the box beats a write-capable one that needs setup
+nobody has done.
+
+| Variable | Required | Effect |
+|---|---|---|
+| `KV_REST_API_URL` | no | Redis/KV REST endpoint. With the token, switches the catalog to `kv` mode. |
+| `KV_REST_API_TOKEN` | no | Bearer token for the above. |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | no | Accepted as aliases when you wire Upstash up yourself. |
+| `SEXTANT_WRITE_TOKEN` | no | Enables `POST /discovery/resources`. Callers must send `Authorization: Bearer <value>`. |
+| `SEXTANT_KV_KEY` | no | Redis hash key. Default `sextant:catalog:v1`. |
+| `SEXTANT_KV_TTL_MS` | no | How long a store snapshot is reused before re-reading. Default `5000`. |
+| `SEXTANT_KV_TIMEOUT_MS` | no | Per-command timeout against the store. Default `4000`. |
+| `SEXTANT_CACHE_S_MAXAGE` | no | CDN `s-maxage` on the read endpoints. Default `60`. |
+| `SEXTANT_CACHE_SWR` | no | CDN `stale-while-revalidate`. Default `600`. |
+| `SEED_CATALOG` | no | `0` boots an empty catalog instead of the seed corpus. |
+| `VITE_INDEX_URL` | no | Build-time override for where the web console points. Leave unset. |
+
+A missing, empty or malformed value never crashes a request. A configured-but-unreachable
+store falls back to the seeded catalog and reports the failure on `/discovery/health`.
+
+---
+
+## Catalog state: the two modes
+
+### `seed` — the zero-configuration default
+
+Each cold start builds a catalog from `packages/index/src/seed.mjs` through the normal
+`catalog.upsert` path, so the seeded records pass the same integrity validation as live
+traffic. `asSeedRecord` pins them to `settlements: 0` and flags them `seeded: true`, so
+nothing in the catalog ever claims a payment that did not happen.
+
+Reads work. Writes return `503` with a reason naming the variables to set.
+
+The three real seller routes (`/v1/fx/usd-brl`, `/v1/cep/:cep`, `/v1/ocr/nota-fiscal`)
+are **not** seeded into the deployment: `apps/seller` binds to `localhost:4023` and there
+is no publicly reachable instance of it. Baking `http://localhost:4023/...` into a public
+Bazaar would advertise resources nobody can reach. When a public seller exists, it enters
+the catalog through the write path below.
+
+### `kv` — durable and shared
+
+Set `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel Marketplace → any Redis integration,
+or Upstash directly) and the catalog gains a shared, persistent layer:
+
+- **Cold start**: seed corpus first, then every record in the store. Store records win on
+  a shared `id`, and because `seeded` is re-derived on each upsert, a real announcement
+  clears the seed flag — the same ordering `apps/facilitator` relies on locally.
+- **Storage**: one Redis hash, `id -> JSON(record)`. A hash rather than one blob because
+  `HSET` on a field is atomic, so two function instances cataloging different resources
+  concurrently cannot clobber each other.
+- **Propagation**: a write forces the next read on that instance to reload; other
+  instances pick it up within `SEXTANT_KV_TTL_MS`.
+
+Add `SEXTANT_WRITE_TOKEN` to open the write path.
+
+**Why writes need a token even though the store variables are enough to make them work:**
+an unauthenticated write endpoint on a public discovery index is a spam magnet, and
+catalog integrity is the load-bearing part of this project. The validator would still
+soft-drop hostile *fields*, but nothing stops volume. So a store makes writes possible,
+the token makes them permitted, and the absence of either is reported plainly rather than
+silently accepted.
+
+---
+
+## Verifying a deployment with curl
+
+Replace `sextants.dev` with your own deployment URL.
+
+```bash
+# 1. Which mode is live, how many records, which commit
+curl -s https://sextants.dev/discovery/health | jq
+
+# 2. Search — ranked, with the score breakdown
+curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' | jq \
+  '.items[] | {id, score: ._score, name: .resource.serviceName}'
+
+# 3. The full _explain on the top hit
+curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=1' \
+  | jq '.items[0]._explain'
+
+# 4. List with filters
+curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' | jq '.total, .items[].id'
+
+# 5. Cursor pagination
+CURSOR=$(curl -s 'https://sextants.dev/discovery/search?query=stellar&limit=2' | jq -r .pagination.cursor)
+curl -s "https://sextants.dev/discovery/search?query=stellar&limit=2&cursor=$CURSOR" | jq '.items[].id'
+
+# 6. CORS preflight — must answer 204 with Access-Control-Allow-Origin: *
+curl -s -i -X OPTIONS https://sextants.dev/discovery/resources | head -8
+
+# 7. The SPA catch-all must NOT shadow the API: this must be JSON, not text/html
+curl -s -o /dev/null -w '%{http_code} %{content_type}\n' \
+  'https://sextants.dev/discovery/search?query=test'
+
+# 8. Write path (kv mode + SEXTANT_WRITE_TOKEN only)
+curl -s -X POST https://sextants.dev/discovery/resources \
+  -H "Authorization: Bearer $SEXTANT_WRITE_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"resource":{"url":"https://api.example.com/v1/thing","serviceName":"Thing",
+        "description":"Does a thing, described well enough to be discoverable.",
+        "tags":["thing"]},
+       "type":"http","payTo":"G...","asset":"C...","maxAmountRequired":"1000",
+       "input":{"type":"http","method":"GET"},"output":{"type":"json"},
+       "extensions":["bazaar"]}' | jq
+```
+
+Expected on a healthy read-only deployment: `health` reports `"mode": "seed"`,
+`"writable": false` and a non-zero `records`; step 7 prints `200 application/json`.
+
+---
+
+## Verifying before you deploy
+
+```bash
+npm run verify:api
+```
+
+This imports the actual `api/discovery/*.mjs` files, drives them with mock and real Node
+`req`/`res` objects, and asserts the response shapes, every filter, both pagination
+styles, `_explain`, CORS, the preflight, cache headers, the write path in all four of its
+states, graceful degradation on a broken store, and the `vercel.json` rewrite ordering.
+
+`npx vercel dev` is the more faithful check but needs an authenticated Vercel account.
+
+---
+
+## The web console: LIVE vs DEMO
+
+`apps/web/src/lib/api.ts` resolves the API base as:
+
+- `VITE_INDEX_URL` if set (an explicit override wins everywhere),
+- otherwise `''` in a production build — a **same-origin relative base**, so the deployed
+  console calls its own `/discovery/*` with no CORS hop and no configuration,
+- otherwise `http://localhost:4022` in the dev server.
+
+The pill in the header reads **LIVE** when the API answered and **DEMO** when it fell back
+to `apps/web/src/data/fixture.json`. That fallback is required by `CONTRACT.md` and is
+untouched — the console renders fully even if the API is down.
+
+---
+
+## Known behaviour
+
+- **`/discovery/integrity` returns 404.** The console probes it opportunistically for a
+  live validation ledger; no build of the index exposes it yet (the local index on `:4022`
+  does not either), so the console falls back to its baked ledger. The probe is wrapped in
+  a `try`/`catch` and the 404 is expected.
+- **`GET /discovery/search` without a `query` parameter is a 400**, per the bazaar spec.
+  A present-but-empty `query` is a browse over the whole filtered catalog.
+- **Cold starts.** The first request after an idle period pays for module load plus
+  seeding. The console allows 4s in production before falling back to DEMO.

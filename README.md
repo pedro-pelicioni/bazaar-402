@@ -63,6 +63,47 @@ the map.
 
 ---
 
+## The public discovery API
+
+> **Status: not deployed yet.** The code, routing and CORS are in place and verified
+> locally (`npm run verify:api`, 36 checks), but `sextants.dev` still resolves to a
+> parked domain. **Nothing below is live until the first deploy lands** — treat these as
+> the commands that will work, not as commands that work today. See
+> [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+The same catalog that `packages/index` serves on `:4022` also deploys as Vercel
+functions, so the Bazaar becomes a **public, hosted endpoint any agent can call** —
+which is what the RFP asks for and what does not exist for Stellar anywhere else.
+
+```bash
+# Natural-language search over the catalog, ranked
+curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' | jq \
+  '.items[] | {id, score: ._score, name: .resource.serviceName}'
+
+# The full score breakdown on the top hit — BM25 / completeness / settlements / recency
+curl -s 'https://sextants.dev/discovery/search?query=convert%20dollars%20to%20reais&limit=1' \
+  | jq '.items[0]._explain'
+
+# List, with the spec filters
+curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' | jq '.total, .items[].id'
+
+# Which mode the catalog is in, how many records, which commit is serving them
+curl -s https://sextants.dev/discovery/health | jq
+```
+
+`GET /discovery/resources` and `GET /discovery/search` are spec-exact — the same field
+names, the same `partialResults`, the same `pagination { limit, cursor }` as
+[the bazaar extension](https://github.com/x402-foundation/x402/blob/main/specs/extensions/bazaar.md)
+defines. CORS is `*` because the point is for *other people's* agents to call it.
+
+The endpoints import `packages/index` directly; the ranking and the catalog-integrity
+validation are the same code the local facilitator runs, not a reimplementation. Out of
+the box the deployment serves a **read-only** catalog seeded at cold start. Attach a
+Redis/KV store and a write token and the auto-cataloging write path turns on;
+`/discovery/health` reports which of the two is active.
+
+---
+
 ## What it looks like
 
 ![SEXTANT discovery console](docs/screenshots/console.png)
@@ -131,6 +172,7 @@ Stellar ecosystem is currently missing, permissively licensed, that anyone can f
 | Component | What it is |
 |---|---|
 | `packages/index` | Catalog + BM25 hybrid search with explainable ranking, catalog-integrity validation |
+| `api/discovery` | Vercel functions serving that same catalog as a public hosted API — no logic of their own |
 | `apps/facilitator` | Self-hosted x402 facilitator on `@x402/stellar`, sponsoring network fees |
 | `apps/seller` | Paid API declaring discovery metadata with per-parameter descriptions |
 | `apps/agent` | MCP server + payment client + narrated CLI |
@@ -166,9 +208,13 @@ npm run dev:all    # facilitator :4021 · index :4022 · seller :4023
 npm run dev:web    # console + landing on :5173
 npm run demo       # full loop: discover → 402 → sign → settle → 200
 npm test           # 70 tests
+npm run verify:api # 36 checks on the serverless discovery API + its routing
 ```
 
 No API keys. No captcha. No mainnet. No real money.
+
+Deployment — including the routing trap where a SPA catch-all silently swallows
+`/discovery/*` — is documented in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
 ---
 
