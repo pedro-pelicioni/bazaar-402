@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AssetImg } from '../components/AssetImg'
+import { Globe } from '../components/Globe'
 import { IntegrityLedger } from '../components/IntegrityLedger'
 import { LoopDiagram, SextantGlyph, StarChart } from '../components/Marks'
 import { SightBoard } from '../components/SightBoard'
@@ -60,6 +61,7 @@ export default function Landing() {
       <main id="main">
         {/* ---------------------------------------------------------- hero */}
         <section className="hero">
+          <Globe />
           <StarChart />
           <AssetImg src="/assets/hero.png" className="hero__art" />
           <div className="shell hero__in">
