@@ -468,11 +468,51 @@ ol {
 }
 
 /* ---------------------------------------------------------------- reveal */
+/* .reveal — the hero's entrance: fires on load, delay set per element. */
 .reveal {
   opacity: 0;
   transform: translateY(16px);
   animation: reveal 0.85s var(--ease) forwards;
   animation-delay: var(--d, 0ms);
+}
+
+/* .rise — the page's entrance: fires when an ancestor scrolls into view.
+   lib/reveal.tsx arms [data-reveal] and sets [data-in]; everything below is
+   inert until it does, so a failed bundle still renders a readable page.
+   Only opacity and transform animate — no blur, no filter, no layout. */
+[data-reveal='on'] .rise {
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+  transition-delay: calc(var(--i, 0) * var(--step, 80ms));
+  /* deliberately no will-change: there are ~60 of these on the page and
+     promoting them all costs more than the hint saves. */
+}
+[data-reveal='on'] [data-in] .rise,
+[data-reveal='on'] .rise[data-in] {
+  opacity: 1;
+  transform: none;
+}
+
+/* words in a split heading: tighter step, shorter travel — the line should
+   read as type being set, not as four separate animations. */
+.wd {
+  display: inline-block;
+  --step: 34ms;
+}
+[data-reveal='on'] .wd {
+  transform: translateY(0.14em);
+}
+
+/* an engraved rule that draws itself left to right */
+[data-reveal='on'] .rise--rule::before {
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.8s var(--ease);
+  transition-delay: calc(var(--i, 0) * var(--step, 80ms));
+}
+[data-reveal='on'] [data-in] .rise--rule::before {
+  transform: none;
 }
 .reveal--rule {
   transform: none;
@@ -546,6 +586,57 @@ ol {
   }
   .ticker__track {
     animation: none;
+  }
+  /* the scroll reveals are a *state*, not just a duration — pin them open.
+     Everything below the fold must be legible with no motion at all. */
+  [data-reveal='on'] .rise {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  [data-reveal='on'] .rise--rule::before,
+  [data-reveal='on'] [data-in] .rise--rule::before {
+    transform: none !important;
+    transition: none !important;
+  }
+  .loopdia .wire,
+  .loopdia .node,
+  .loopdia .feed {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+    animation: none !important;
+  }
+  .loopdia .pulse {
+    display: none;
+  }
+  .stack__meter i {
+    transform: scaleX(var(--w, 1)) !important;
+    transition: none !important;
+  }
+}
+
+/* Printing (or saving to PDF) never scrolls, so nothing would ever be observed
+   and the lower half of the page would come out blank. Pin it all open. */
+@media print {
+  [data-reveal='on'] .rise {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  [data-reveal='on'] .rise--rule::before {
+    transform: none !important;
+  }
+  .loopdia .wire,
+  .loopdia .node,
+  .loopdia .tip,
+  .loopdia .feed {
+    stroke-dashoffset: 0 !important;
+    opacity: 1 !important;
+  }
+  .loopdia .pulse {
+    display: none;
+  }
+  .stack__meter i {
+    transform: scaleX(var(--w, 1)) !important;
   }
 }
 

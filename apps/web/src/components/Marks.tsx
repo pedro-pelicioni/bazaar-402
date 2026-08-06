@@ -1,5 +1,7 @@
 /** Engraved instrument marks — all inline SVG, no image dependencies. */
 
+import { useReveal } from '../lib/reveal'
+
 export function SextantGlyph({ size = 22 }: { size?: number }) {
   return (
     <svg className="glyph" width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
@@ -130,8 +132,22 @@ export function ArcScale() {
   )
 }
 
-/** The four-step loop, drawn as an instrument plate. */
+const FEEDBACK_ARC = 'M890 152 C890 250, 370 250, 370 152'
+
+/**
+ * The four-step loop, drawn as an instrument plate.
+ *
+ * It draws itself when it scrolls into view — stations first, then the brass
+ * wires between them left to right, then the jade feedback arc right to left,
+ * and finally a pulse that keeps running that arc. The technique is the one
+ * behind every "animated beam" component: give the path `pathLength="1"` so a
+ * dash pattern can be written in fractions of the path, then move
+ * `stroke-dashoffset`. Drawing beats a static arrow here because the feedback
+ * arc is the diagram's one non-obvious claim — settlements re-rank the index —
+ * and a line that travels backwards says that faster than a caption does.
+ */
 export function LoopDiagram() {
+  const ref = useReveal<SVGSVGElement>()
   const nodes = [
     { x: 110, t: 'ADVERTISE', s: 'seller upserts a record' },
     { x: 370, t: 'DISCOVER', s: 'agent searches in words' },
@@ -139,19 +155,28 @@ export function LoopDiagram() {
     { x: 890, t: 'CONSUME', s: 'agent uses the response' },
   ]
   return (
-    <svg viewBox="0 0 1000 300" role="img" aria-label="The SEXTANT loop: advertise, discover, settle, consume, with settlements feeding back into ranking.">
+    <svg
+      ref={ref}
+      className="loopdia"
+      viewBox="0 0 1000 300"
+      role="img"
+      aria-label="The SEXTANT loop: advertise, discover, settle, consume, with settlements feeding back into ranking."
+    >
       <g stroke="var(--rule)" strokeWidth="1">
         <line x1="0" y1="118" x2="1000" y2="118" />
       </g>
       {nodes.slice(0, -1).map((n, i) => (
-        <g key={i}>
+        <g key={i} style={{ ['--i' as string]: i }}>
           <path
+            className="wire"
+            pathLength={1}
             d={`M${n.x + 62} 118 L${nodes[i + 1].x - 68} 118`}
             stroke="var(--brass)"
             strokeWidth="1.4"
             fill="none"
           />
           <path
+            className="tip"
             d={`M${nodes[i + 1].x - 74} 112 l7 6 -7 6`}
             stroke="var(--brass)"
             strokeWidth="1.4"
@@ -160,19 +185,32 @@ export function LoopDiagram() {
         </g>
       ))}
       {/* feedback arc: settlement count feeds the ranking */}
+      {/* no pathLength here: it would rescale the 4-4 dash into one solid dash */}
       <path
-        d="M890 152 C890 250, 370 250, 370 152"
+        className="feed"
+        d={FEEDBACK_ARC}
         stroke="var(--good)"
         strokeWidth="1.2"
         strokeDasharray="4 4"
         fill="none"
       />
-      <path d="M364 158 l6 -7 6 7" stroke="var(--good)" strokeWidth="1.2" fill="none" />
-      <text x="630" y="268" textAnchor="middle" fill="var(--good)" style={{ font: "11px 'DM Mono', monospace", letterSpacing: '0.14em' }}>
+      {/* the settlement travelling back up the arc, drawn over it */}
+      <path
+        className="pulse"
+        pathLength={1}
+        d={FEEDBACK_ARC}
+        stroke="var(--good)"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        fill="none"
+        aria-hidden="true"
+      />
+      <path className="tip feed-tip" d="M364 158 l6 -7 6 7" stroke="var(--good)" strokeWidth="1.2" fill="none" />
+      <text className="feed-tip" x="630" y="268" textAnchor="middle" fill="var(--good)" style={{ font: "11px 'DM Mono', monospace", letterSpacing: '0.14em' }}>
         SETTLEMENTS FEED THE RANKING
       </text>
       {nodes.map((n, i) => (
-        <g key={n.t}>
+        <g className="node" style={{ ['--i' as string]: i }} key={n.t}>
           <circle cx={n.x} cy="118" r="34" fill="var(--bg)" stroke="var(--fg)" strokeWidth="1" />
           <circle cx={n.x} cy="118" r="27" fill="none" stroke="var(--rule)" strokeWidth="1" />
           <text x={n.x} y="124" textAnchor="middle" fill="var(--fg)" style={{ font: "italic 22px 'Instrument Serif', serif" }}>

@@ -159,6 +159,19 @@
   padding-top: 0.6rem;
   border-top: 1px solid var(--fg);
 }
+/* the same hairline, moved to a pseudo-element so it can draw itself
+   left-to-right when the section arrives. Without JS it is simply painted. */
+.section__no.rise--rule {
+  position: relative;
+  border-top-color: transparent;
+}
+.section__no.rise--rule::before {
+  content: '';
+  position: absolute;
+  inset: -1px 0 auto 0;
+  height: 1px;
+  background: var(--fg);
+}
 .section__title {
   font-family: 'Instrument Serif', serif;
   font-size: clamp(2rem, 4.6vw, 3.6rem);
@@ -223,6 +236,180 @@
   font-size: 0.9375rem;
   line-height: 1.6;
   color: var(--fg-2);
+}
+
+/* ------------------------------------------------------- stack self-test */
+/* The page's central claim, set as an instrument readout: one row full,
+   one row empty. The meters carry the argument, so they are the only thing
+   here allowed to move. */
+.stack {
+  margin-bottom: clamp(2rem, 5vw, 3.25rem);
+}
+/* stays on --fg-2 rather than --fg-3: --fg-3 measures 3.06:1 on the plate,
+   which is under AA for text this size. */
+.stack__net {
+  margin-left: auto;
+}
+/* both caption halves wrap at this width; the network is already stated in the
+   hero and the colophon, so it is the one that goes. */
+@media (max-width: 560px) {
+  .stack__net {
+    display: none;
+  }
+}
+.stack__rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 820px) {
+  .stack__rows {
+    grid-template-columns: 1fr;
+  }
+}
+.stack__row {
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  display: grid;
+  gap: 0.85rem;
+  align-content: start;
+  border-right: 1px solid var(--rule);
+}
+.stack__row:last-child {
+  border-right: 0;
+}
+@media (max-width: 820px) {
+  .stack__row {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .stack__row:last-child {
+    border-bottom: 0;
+  }
+}
+.stack__id {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.stack__name {
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(1.5rem, 3vw, 2.125rem);
+  font-weight: 400;
+  line-height: 1;
+}
+.stack__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: 'DM Mono', Menlo, monospace;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+/* --good / --warn are the AA-safe variants on each theme; raw jade and clay
+   are never used for text. */
+.is-ok .stack__flag {
+  color: var(--good);
+}
+.is-gap .stack__flag {
+  color: var(--warn);
+}
+.is-gap .stack__flag .dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+.stack__parts {
+  display: grid;
+  gap: 0.3rem;
+}
+.stack__parts li {
+  position: relative;
+  padding-left: 1.05rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+.stack__parts li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+}
+.is-ok .stack__parts li::before {
+  background: var(--good);
+}
+.is-gap .stack__parts li::before {
+  box-shadow: inset 0 0 0 1px var(--warn);
+}
+
+.stack__gauge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.15rem;
+}
+.stack__meter {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: var(--rule-2);
+  overflow: hidden;
+}
+.stack__meter i {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 1.05s var(--ease) 0.3s;
+}
+.is-ok .stack__meter i {
+  background: var(--good);
+}
+.is-gap .stack__meter i {
+  background: var(--warn);
+}
+[data-reveal='on'] [data-in] .stack__meter i {
+  transform: scaleX(var(--w, 1));
+}
+/* no JS: show the finished reading rather than two empty bars */
+html:not([data-reveal='on']) .stack__meter i {
+  transform: scaleX(var(--w, 1));
+}
+.stack__ticks {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+.stack__ticks b {
+  flex: 1;
+  border-right: 1px solid var(--bg);
+}
+.stack__ticks b:last-child {
+  border-right: 0;
+}
+.stack__tally {
+  font-family: 'DM Mono', Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--fg-2);
+  flex: none;
+}
+
+.stack__foot {
+  border-top: 1px solid var(--rule);
+  padding: 0.85rem clamp(1rem, 2.5vw, 1.5rem);
+  font-family: 'Instrument Serif', serif;
+  font-size: clamp(1.125rem, 2vw, 1.4rem);
+  color: var(--fg);
+}
+.stack__foot em {
+  font-style: italic;
+  color: var(--accent);
 }
 
 /* ---------------------------------------------------------------- steps */
@@ -291,6 +478,78 @@
   width: 100%;
   min-width: 620px;
   height: auto;
+}
+
+/* --- the loop, drawing itself ----------------------------------------- */
+/* Every path carries pathLength="1", so a dash pattern is written in
+   fractions of the path and one property — stroke-dashoffset — does all the
+   work: 1 → 0 draws a line, 0 → -1 sends a dash travelling along it. */
+[data-reveal='on'] .loopdia .wire {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+/* the feedback arc keeps its 4-4 dash — that dash is what distinguishes a
+   signal from the flow — so it fades rather than draws, and the pulse below
+   supplies the direction the draw would have shown. */
+[data-reveal='on'] .loopdia .node,
+[data-reveal='on'] .loopdia .tip,
+[data-reveal='on'] .loopdia .feed {
+  opacity: 0;
+}
+[data-reveal='on'] .loopdia[data-in] .node {
+  animation: dia-in 0.55s var(--ease) forwards;
+  animation-delay: calc(var(--i, 0) * 0.11s);
+}
+[data-reveal='on'] .loopdia[data-in] .wire {
+  animation: dia-draw 0.6s var(--ease) forwards;
+  animation-delay: calc(0.3s + var(--i, 0) * 0.16s);
+}
+[data-reveal='on'] .loopdia[data-in] .tip {
+  animation: dia-in 0.3s var(--ease) forwards;
+  animation-delay: calc(0.82s + var(--i, 0) * 0.16s);
+}
+[data-reveal='on'] .loopdia[data-in] .feed {
+  animation: dia-in 0.6s var(--ease) forwards;
+  animation-delay: 1.05s;
+}
+[data-reveal='on'] .loopdia[data-in] .feed-tip {
+  animation: dia-in 0.45s var(--ease) forwards;
+  animation-delay: 1.55s;
+}
+/* the settlement itself, running the arc back into the ranking. Three passes,
+   not a loop: it has a point to make, then the diagram should sit still. */
+.loopdia .pulse {
+  stroke-dasharray: 0.07 0.93;
+  stroke-dashoffset: 0;
+  opacity: 0;
+}
+[data-reveal='on'] .loopdia[data-in] .pulse {
+  animation: dia-pulse 4.2s linear 1.5s 3;
+}
+@keyframes dia-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes dia-in {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes dia-pulse {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+  12%,
+  76% {
+    opacity: 1;
+  }
+  88%,
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
 }
 
 /* ---------------------------------------------------------------- testnet */
