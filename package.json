@@ -1,0 +1,24 @@
+{
+  "name": "pregao",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "PREGÃO — Stellar-native discovery layer for x402 paid APIs. Agents call out, agents discover, agents pay.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/setup-testnet.mjs",
+    "demo": "node scripts/demo-loop.mjs",
+    "test": "node --test test/ packages/index/test/ 2>/dev/null || node --test test/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pedro-pelicioni/bazaar-402"
+  }
+}
