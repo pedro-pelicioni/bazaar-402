@@ -70,6 +70,18 @@ serves on `:4022` also deploys as Vercel functions, so the Bazaar is a **public,
 endpoint any agent can call** — which is what the RFP asks for, and what does not exist for
 Stellar anywhere else. Run the commands below and they answer.
 
+| Method | Endpoint | What it does |
+|---|---|---|
+| `GET` | [`/discovery/resources`](https://sextants.dev/discovery/resources?limit=3) | Paginated catalog, with the spec's `type`, `payTo`, `scheme`, `network`, `extensions`, `limit`, `offset` filters |
+| `GET` | [`/discovery/search`](https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3) | Natural-language search. Returns `partialResults`, `pagination { limit, cursor }`, and `_explain` per result |
+| `GET` | [`/discovery/health`](https://sextants.dev/discovery/health) | Catalog mode, record counts, durable-store transport, and the commit being served |
+| `POST` | `/discovery/resources` | Auto-cataloging. Requires `Authorization: Bearer <SEXTANT_WRITE_TOKEN>` |
+| any | `/discovery/<anything else>` | `404` JSON naming the endpoints that do exist — never HTML, never a silent `200` |
+
+CORS is `*`, because the point is for *other people's* agents to call it. Every rejection —
+`401` without a write token, `404` on an unknown path, `503` with no durable store — carries
+a non-null, human-readable `reason` that names what to do about it.
+
 ```bash
 # Natural-language search over the catalog, ranked
 curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' | jq \
@@ -93,11 +105,18 @@ $ curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' �
   0.8098  Invoice OCR
 
 $ curl -s https://sextants.dev/discovery/health …
-  mode=seed  records=27  writable=false  commit=3ff6d6a
+  mode=kv  transport=redis  records=27  writable=true  commit=c32e43d
+
+$ curl -s -o /dev/null -w '%{http_code} %{content_type}' https://sextants.dev/discovery/nope
+  404 application/json; charset=utf-8
 ```
 
 `/discovery/health` reports the commit it is serving, so a claim in this README can always
 be checked against the code that is actually deployed.
+
+`mode: kv` means a durable Redis store is attached and auto-catalogued resources survive
+cold starts; with no store configured the same code runs read-only from the seeded catalog
+and says so, rather than failing.
 
 `GET /discovery/resources` and `GET /discovery/search` are spec-exact — the same field
 names, the same `partialResults`, the same `pagination { limit, cursor }` as

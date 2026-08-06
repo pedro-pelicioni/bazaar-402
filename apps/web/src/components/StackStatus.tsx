@@ -6,11 +6,16 @@ import { useReveal } from '../lib/reveal'
  *
  * Settlement on Stellar is finished work — four moving parts, all of them
  * shipped by x402 and the network itself. Discovery has the same four-part
- * shape and none of the parts. Reading the two rows against each other is the
- * fastest way to understand why this project exists, so the page says it here
- * in full before it says anything else.
+ * shape and, in the ecosystem at large, none of the parts.
  *
- * The meters are the argument, not decoration: one fills, one does not.
+ * The third row is not decoration either: with only the first two, a reader on
+ * SEXTANT's own landing page sees "Discovery — Unsolved — 0/4" and reasonably
+ * concludes that THIS project does not do those things. It does, and they are
+ * live. So the plate has to carry the diagnosis and the answer, or it argues
+ * against itself.
+ *
+ * The meters are the argument: one fills, one does not, and the third fills
+ * because of the work in this repo.
  */
 
 type Row = {
@@ -46,6 +51,18 @@ const ROWS: Row[] = [
       'no explanation of the result',
     ],
     score: 0,
+  },
+  {
+    name: 'Discovery, with SEXTANT',
+    verdict: 'Live',
+    ok: true,
+    parts: [
+      'spec-exact catalog and search',
+      'soft-drop validation at the edge',
+      'BM25 + metadata + settlements + recency',
+      'every result explains its own score',
+    ],
+    score: 1,
   },
 ]
 
@@ -106,7 +123,11 @@ export function StackStatus() {
       </div>
 
       <p className="stack__foot">
-        SEXTANT is the <em>second row</em>.
+        The second row is why this exists. The third is <em>running right now</em> —{' '}
+        <a href="https://sextants.dev/discovery/health" target="_blank" rel="noreferrer noopener">
+          check it
+        </a>
+        .
       </p>
     </section>
   )
