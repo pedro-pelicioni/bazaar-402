@@ -6,6 +6,156 @@
   "facilitator": "http://localhost:4021",
   "items": [
     {
+      "id": "http://localhost:4023/v1/fx/usd-brl",
+      "resource": {
+        "url": "http://localhost:4023/v1/fx/usd-brl",
+        "serviceName": "sextant-fx",
+        "description": "USD/BRL exchange rate with bid, ask and mid price.",
+        "tags": [
+          "fx",
+          "forex",
+          "usd",
+          "brl",
+          "quote"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCWHOZD7PS6EJOJ3EEGDVWPWQKU7RCKRK6WTTQPI5Q3TGX7XLH7GKG3O",
+      "asset": "CAYCPWN5YZEHKPGZOXGU3O7R2Q5H7LT7SZ45YIO26VMFM47VBUHOGPO2",
+      "maxAmountRequired": "100000",
+      "input": {
+        "type": "http",
+        "queryParams": {},
+        "method": "GET"
+      },
+      "output": {
+        "type": "json",
+        "example": {
+          "pair": "USD/BRL",
+          "bid": 5.4312,
+          "ask": 5.4389,
+          "mid": 5.435,
+          "asOf": "2026-08-06T12:00:00.000Z",
+          "source": "sextant-mock"
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786043620064,
+      "settlements": 1,
+      "firstSeenAt": 1786043471267
+    },
+    {
+      "id": "http://localhost:4023/v1/ocr/nota-fiscal",
+      "resource": {
+        "url": "http://localhost:4023/v1/ocr/nota-fiscal",
+        "serviceName": "sextant-ocr",
+        "description": "Invoice OCR — Brazilian electronic invoice (NF-e), returning structured line items and totals.",
+        "tags": [
+          "ocr",
+          "invoice",
+          "nfe",
+          "brazil",
+          "document"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCWHOZD7PS6EJOJ3EEGDVWPWQKU7RCKRK6WTTQPI5Q3TGX7XLH7GKG3O",
+      "asset": "CAYCPWN5YZEHKPGZOXGU3O7R2Q5H7LT7SZ45YIO26VMFM47VBUHOGPO2",
+      "maxAmountRequired": "500000",
+      "input": {
+        "type": "http",
+        "bodyType": "json",
+        "body": {
+          "imageUrl": "https://example.com/invoice.png",
+          "language": "pt-BR"
+        },
+        "method": "POST"
+      },
+      "output": {
+        "type": "json",
+        "example": {
+          "documentType": "NFe",
+          "accessKey": "35240612345678000199550010000012341000012345",
+          "issuer": {
+            "name": "Example Trading Ltd",
+            "taxId": "12.345.678/0001-99"
+          },
+          "total": 1234.56,
+          "currency": "BRL",
+          "lineItems": [
+            {
+              "description": "Item A",
+              "quantity": 2,
+              "unitPrice": 100,
+              "total": 200
+            }
+          ],
+          "confidence": 0.97
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786043620069,
+      "settlements": 1,
+      "firstSeenAt": 1786043471309
+    },
+    {
+      "id": "http://localhost:4023/v1/cep/:cep",
+      "resource": {
+        "url": "http://localhost:4023/v1/cep/:cep",
+        "serviceName": "sextant-postal",
+        "description": "Brazilian postal code lookup returning street, neighborhood, city and state.",
+        "tags": [
+          "postal-code",
+          "address",
+          "brazil",
+          "geocoding",
+          "lookup"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCWHOZD7PS6EJOJ3EEGDVWPWQKU7RCKRK6WTTQPI5Q3TGX7XLH7GKG3O",
+      "asset": "CAYCPWN5YZEHKPGZOXGU3O7R2Q5H7LT7SZ45YIO26VMFM47VBUHOGPO2",
+      "maxAmountRequired": "50000",
+      "input": {
+        "type": "http",
+        "queryParams": {
+          "cep": "01310100"
+        },
+        "pathParams": {
+          "cep": "01310100"
+        },
+        "method": "GET"
+      },
+      "output": {
+        "type": "json",
+        "example": {
+          "postalCode": "01310-100",
+          "street": "Avenida Paulista",
+          "neighborhood": "Bela Vista",
+          "city": "Sao Paulo",
+          "state": "SP",
+          "country": "BR"
+        }
+      },
+      "routeTemplate": "/v1/cep/:cep",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786043620067,
+      "settlements": 1,
+      "firstSeenAt": 1786043471306
+    },
+    {
       "id": "https://fx.sextant.dev/v1/rate",
       "resource": {
         "url": "https://fx.sextant.dev/v1/rate",
@@ -45,7 +195,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786042103151,
-      "settlements": 1520
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://registry.sextant.dev/v1/company/{taxId}",
@@ -87,7 +238,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786042083151,
-      "settlements": 1877
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://geo.sextant.dev/v1/postcode/{code}",
@@ -127,7 +279,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786042033151,
-      "settlements": 3104
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://nfe.sextant.dev/v1/parse",
@@ -169,7 +322,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786042003151,
-      "settlements": 412
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://slip.sextant.dev/v1/bank-slip",
@@ -209,7 +363,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786041763151,
-      "settlements": 640
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://pix.sextant.dev/mcp#reconcile_statement",
@@ -261,7 +416,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786041463151,
-      "settlements": 233
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://speech.sextant.dev/v1/transcribe",
@@ -303,7 +459,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786040503151,
-      "settlements": 96
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://docs.sextant.dev/v1/ocr",
@@ -343,7 +500,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786038823151,
-      "settlements": 289
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://mcp.sextant.example/mcp#search_catalog",
@@ -404,8 +562,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786038609882,
-      "settlements": 980,
-      "firstSeenAt": 1786038609882
+      "settlements": 0,
+      "firstSeenAt": 1786038609882,
+      "seeded": true
     },
     {
       "id": "https://api.fxrates.example/v1/fx/usd-brl",
@@ -464,8 +623,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786034289882,
-      "settlements": 4820,
-      "firstSeenAt": 1786034289882
+      "settlements": 0,
+      "firstSeenAt": 1786034289882,
+      "seeded": true
     },
     {
       "id": "https://legal.sextant.dev/mcp#extract_clauses",
@@ -516,7 +676,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786031323151,
-      "settlements": 58
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://mcp.stellartools.example/mcp#submit_transaction",
@@ -577,8 +738,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786029969882,
-      "settlements": 4410,
-      "firstSeenAt": 1786029969882
+      "settlements": 0,
+      "firstSeenAt": 1786029969882,
+      "seeded": true
     },
     {
       "id": "https://api.addresses.example/v1/postal-code/01310930",
@@ -636,8 +798,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786025649882,
-      "settlements": 7450,
-      "firstSeenAt": 1786025649882
+      "settlements": 0,
+      "firstSeenAt": 1786025649882,
+      "seeded": true
     },
     {
       "id": "https://mcp.stellartools.example/mcp#simulate_contract",
@@ -701,8 +864,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786021329882,
-      "settlements": 2890,
-      "firstSeenAt": 1786021329882
+      "settlements": 0,
+      "firstSeenAt": 1786021329882,
+      "seeded": true
     },
     {
       "id": "https://api.fxrates.example/v1/fx/usdc-brl",
@@ -755,8 +919,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786017009882,
-      "settlements": 2140,
-      "firstSeenAt": 1786017009882
+      "settlements": 0,
+      "firstSeenAt": 1786017009882,
+      "seeded": true
     },
     {
       "id": "https://sped.sextant.dev/v1/validate",
@@ -797,7 +962,8 @@
         "bazaar"
       ],
       "lastSeenAt": 1786013323151,
-      "settlements": 71
+      "settlements": 0,
+      "seeded": true
     },
     {
       "id": "https://api.payments.example/v1/pix/validate",
@@ -858,8 +1024,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1786008369882,
-      "settlements": 5230,
-      "firstSeenAt": 1786008369882
+      "settlements": 0,
+      "firstSeenAt": 1786008369882,
+      "seeded": true
     },
     {
       "id": "https://oracle.reflector.example/v1/price/xlm",
@@ -895,8 +1062,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785999729882,
-      "settlements": 3310,
-      "firstSeenAt": 1785999729882
+      "settlements": 0,
+      "firstSeenAt": 1785999729882,
+      "seeded": true
     },
     {
       "id": "https://api.weather.example/v1/forecast",
@@ -956,8 +1124,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785991089882,
-      "settlements": 3890,
-      "firstSeenAt": 1785991089882
+      "settlements": 0,
+      "firstSeenAt": 1785991089882,
+      "seeded": true
     },
     {
       "id": "https://api.chaindata.example/v1/account/GABC/balances",
@@ -1007,8 +1176,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785982449882,
-      "settlements": 3120,
-      "firstSeenAt": 1785982449882
+      "settlements": 0,
+      "firstSeenAt": 1785982449882,
+      "seeded": true
     },
     {
       "id": "https://api.documents.example/v1/invoice-ocr",
@@ -1069,8 +1239,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785973809882,
-      "settlements": 1980,
-      "firstSeenAt": 1785973809882
+      "settlements": 0,
+      "firstSeenAt": 1785973809882,
+      "seeded": true
     },
     {
       "id": "https://api.translate.example/v1/translate",
@@ -1135,8 +1306,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785965169882,
-      "settlements": 2450,
-      "firstSeenAt": 1785965169882
+      "settlements": 0,
+      "firstSeenAt": 1785965169882,
+      "seeded": true
     },
     {
       "id": "https://oracle.reflector.example/v1/price/multi",
@@ -1176,8 +1348,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785939249882,
-      "settlements": 890,
-      "firstSeenAt": 1785939249882
+      "settlements": 0,
+      "firstSeenAt": 1785939249882,
+      "seeded": true
     },
     {
       "id": "https://api.registry.example/v1/company/12345678000190",
@@ -1233,8 +1406,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785913329882,
-      "settlements": 2670,
-      "firstSeenAt": 1785913329882
+      "settlements": 0,
+      "firstSeenAt": 1785913329882,
+      "seeded": true
     },
     {
       "id": "https://api.antifraud.example/v1/risk-score",
@@ -1273,8 +1447,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785870129882,
-      "settlements": 1340,
-      "firstSeenAt": 1785870129882
+      "settlements": 0,
+      "firstSeenAt": 1785870129882,
+      "seeded": true
     },
     {
       "id": "https://api.payments.example/v1/pix/qrcode",
@@ -1312,8 +1487,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785826929882,
-      "settlements": 1120,
-      "firstSeenAt": 1785826929882
+      "settlements": 0,
+      "firstSeenAt": 1785826929882,
+      "seeded": true
     },
     {
       "id": "https://api.fxrates.example/v1/fx/history",
@@ -1369,8 +1545,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785783729882,
-      "settlements": 610,
-      "firstSeenAt": 1785783729882
+      "settlements": 0,
+      "firstSeenAt": 1785783729882,
+      "seeded": true
     },
     {
       "id": "https://api.centralbank.example/v1/indicators",
@@ -1422,8 +1599,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785697329882,
-      "settlements": 430,
-      "firstSeenAt": 1785697329882
+      "settlements": 0,
+      "firstSeenAt": 1785697329882,
+      "seeded": true
     },
     {
       "id": "https://mcp.stellartools.example/mcp#fetch_ledger_entry",
@@ -1467,8 +1645,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785610929882,
-      "settlements": 320,
-      "firstSeenAt": 1785610929882
+      "settlements": 0,
+      "firstSeenAt": 1785610929882,
+      "seeded": true
     },
     {
       "id": "https://api.addresses.example/v1/geocode",
@@ -1505,8 +1684,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785524529882,
-      "settlements": 760,
-      "firstSeenAt": 1785524529882
+      "settlements": 0,
+      "firstSeenAt": 1785524529882,
+      "seeded": true
     },
     {
       "id": "https://api.nlp.example/v1/speech-to-text",
@@ -1543,8 +1723,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785438129882,
-      "settlements": 540,
-      "firstSeenAt": 1785438129882
+      "settlements": 0,
+      "firstSeenAt": 1785438129882,
+      "seeded": true
     },
     {
       "id": "https://api.payments.example/v1/boleto/parse",
@@ -1579,8 +1760,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1785265329882,
-      "settlements": 205,
-      "firstSeenAt": 1785265329882
+      "settlements": 0,
+      "firstSeenAt": 1785265329882,
+      "seeded": true
     },
     {
       "id": "https://api.chaindata.example/v1/contract/events",
@@ -1608,8 +1790,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1784746929882,
-      "settlements": 61,
-      "firstSeenAt": 1784746929882
+      "settlements": 0,
+      "firstSeenAt": 1784746929882,
+      "seeded": true
     },
     {
       "id": "https://api.registry.example/v1/taxid/check",
@@ -1636,8 +1819,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1784228529882,
-      "settlements": 14,
-      "firstSeenAt": 1784228529882
+      "settlements": 0,
+      "firstSeenAt": 1784228529882,
+      "seeded": true
     },
     {
       "id": "https://api.logistics.example/v1/freight/quote",
@@ -1667,8 +1851,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1783018929882,
-      "settlements": 3,
-      "firstSeenAt": 1783018929882
+      "settlements": 0,
+      "firstSeenAt": 1783018929882,
+      "seeded": true
     },
     {
       "id": "https://api.nlp.example/v1/sentiment",
@@ -1696,8 +1881,9 @@
         "bazaar"
       ],
       "lastSeenAt": 1781895729882,
-      "settlements": 7,
-      "firstSeenAt": 1781895729882
+      "settlements": 0,
+      "firstSeenAt": 1781895729882,
+      "seeded": true
     },
     {
       "id": "https://mcp.legacy.example/mcp#legacy_lookup",
@@ -1731,11 +1917,12 @@
         "bazaar"
       ],
       "lastSeenAt": 1780599729882,
-      "settlements": 1,
-      "firstSeenAt": 1780599729882
+      "settlements": 0,
+      "firstSeenAt": 1780599729882,
+      "seeded": true
     }
   ],
-  "total": 37,
+  "total": 40,
   "integrity": [
     {
       "at": 1786041943151,

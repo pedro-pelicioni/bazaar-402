@@ -24,6 +24,11 @@ export type SextantRecord = {
   extensions?: string[]
   lastSeenAt: number
   settlements: number
+  /**
+   * Marked by the index (and by the baked fixture) on illustrative catalog
+   * entries. Absent means a real, payable, settle-backed resource.
+   */
+  seeded?: boolean
   /** attached client-side (or by the index) — why this lot ranked where it did */
   _explain?: Explain
 }

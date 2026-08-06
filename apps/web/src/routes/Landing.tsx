@@ -24,7 +24,13 @@ export default function Landing() {
   }, [])
 
   const top = rank('', cat.items).sort((a, b) => b.settlements - a.settlements)
-  const settled = cat.items.reduce((a, r) => a + (r.settlements || 0), 0)
+  const isLive = cat.source === 'live'
+  /**
+   * Only the live index has observed settlements. The baked fixture is an
+   * illustrative catalog, so in DEMO we show no figure at all rather than a
+   * number a viewer could read as real history.
+   */
+  const settled = isLive ? cat.items.reduce((a, r) => a + (r.settlements || 0), 0) : null
 
   return (
     <div className="theme t-paper">
@@ -107,7 +113,18 @@ export default function Landing() {
                   </div>
                   <div className="fix__row">
                     <span className="fix__k">Settlements observed</span>
-                    <span className="fix__v fix__v--accent">{settled.toLocaleString('en-US')}</span>
+                    {settled === null ? (
+                      <span className="fix__v" style={{ color: 'var(--fg-3)' }}>
+                        —{' '}
+                        <span style={{ fontSize: '0.625rem', letterSpacing: '0.13em' }}>
+                          · DEMO CATALOG
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="fix__v fix__v--accent">
+                        {settled.toLocaleString('en-US')}
+                      </span>
+                    )}
                   </div>
                   <div className="fix__row">
                     <span className="fix__k">Test asset</span>
@@ -250,7 +267,10 @@ export default function Landing() {
               price, its resource type, and a score bar split into the four signals that produced
               it. Run a query in the console and the board physically re-orders.
             </p>
-            <SightBoard items={top.slice(0, 4)} caption="Live catalog — top by settlements" />
+            <SightBoard
+              items={top.slice(0, 4)}
+              caption={`${isLive ? 'Live catalog' : 'Demo catalog'} — top by settlements`}
+            />
             <div style={{ marginTop: '1.5rem' }}>
               <Link className="btn btn--solid" to="/console">
                 Open the console

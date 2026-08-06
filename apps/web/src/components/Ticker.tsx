@@ -17,7 +17,7 @@ export function Ticker({ items }: { items: SextantRecord[] }) {
               {formatAmount(r.amount ?? r.maxAmountRequired)} {ASSET_CODE}
             </span>
             <span className="tick">{r.type.toUpperCase()}</span>
-            <span className="tick">{r.settlements} settled</span>
+            <span className="tick">{r.seeded ? 'catalog' : `${r.settlements} settled`}</span>
           </span>
         ))}
       </div>

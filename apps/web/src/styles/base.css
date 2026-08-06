@@ -292,6 +292,10 @@ ol {
 .source-pill--demo {
   color: var(--accent);
 }
+/* illustrative catalog entry — deliberately quiet next to a live payable one */
+.source-pill--seed {
+  color: var(--fg-3);
+}
 
 /* ---------------------------------------------------------------- buttons */
 .btn {

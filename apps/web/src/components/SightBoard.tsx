@@ -111,6 +111,18 @@ function Sight({
           {formatAmount(rec.amount ?? rec.maxAmountRequired)}
           <small>{ASSET_CODE}</small>
         </span>
+        <span
+          className={`source-pill source-pill--${rec.seeded ? 'seed' : 'live'}`}
+          style={{ padding: '0.22rem 0.42rem', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}
+          title={
+            rec.seeded
+              ? 'Illustrative catalog entry — advertised, not settle-backed'
+              : 'Real resource — payable now, backed by observed settlements'
+          }
+        >
+          <span className="dot" />
+          {rec.seeded ? 'Catalog' : 'Live · Payable'}
+        </span>
         <span className="sight__seen">seen {ago(rec.lastSeenAt)}</span>
         <span className="sight__seen">pay to {shortKey(rec.payTo, 4, 4)}</span>
         <div className="sight__acts">

@@ -22,3 +22,6 @@ and appended to by `scripts/demo-loop.mjs`.
 | demo: postal-code lookup | `43af892d31c2a961b21f99eba43f4f7da14af36656fb5c0b81a6e49ee86c2787` | https://stellar.expert/explorer/testnet/tx/43af892d31c2a961b21f99eba43f4f7da14af36656fb5c0b81a6e49ee86c2787 |
 | demo: fx usd-brl | `4b4336dd58d871453f11606ba37ace4f12f8c244d9bc2e10ce8d94663a2c12e5` | https://stellar.expert/explorer/testnet/tx/4b4336dd58d871453f11606ba37ace4f12f8c244d9bc2e10ce8d94663a2c12e5 |
 | demo: ocr invoice | `5e49e77232de345a5f5fed5d5b4fd5925b305c00bf35ec2ea272d1493306ca2e` | https://stellar.expert/explorer/testnet/tx/5e49e77232de345a5f5fed5d5b4fd5925b305c00bf35ec2ea272d1493306ca2e |
+| demo: postal-code lookup | `3bfd5ee6428b80c65272f6592e3e6a70b49f506b25a97390e343b28e45fcc6ce` | https://stellar.expert/explorer/testnet/tx/3bfd5ee6428b80c65272f6592e3e6a70b49f506b25a97390e343b28e45fcc6ce |
+| demo: fx usd-brl | `c5d50781df8abbb0cf97e20af7b93488e087d9e2d554057e1c9521e897ca13cf` | https://stellar.expert/explorer/testnet/tx/c5d50781df8abbb0cf97e20af7b93488e087d9e2d554057e1c9521e897ca13cf |
+| demo: ocr invoice | `895801b0447e023fe3a86c5a68986197def54c0d7a62d0968e8464b348de5468` | https://stellar.expert/explorer/testnet/tx/895801b0447e023fe3a86c5a68986197def54c0d7a62d0968e8464b348de5468 |
