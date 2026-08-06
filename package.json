@@ -1,10 +1,10 @@
 {
-  "name": "pregao",
+  "name": "sextant",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
-  "description": "PREGÃO — Stellar-native discovery layer for x402 paid APIs. Agents call out, agents discover, agents pay.",
+  "description": "SEXTANT — find what to pay for on Stellar. Discovery for the x402 economy.",
   "workspaces": [
     "packages/*",
     "apps/*"

@@ -1,0 +1,283 @@
+/**
+ * SEXTANT — thin, fail-soft HTTP client for the Bazaar index (`INDEX_URL`).
+ *
+ * Endpoints (CONTRACT.md, owned by packages/index served on :4022):
+ *   GET /discovery/search?query&limit&cursor&...filters
+ *       -> { items, partialResults, pagination:{ limit, cursor } }
+ *   GET /discovery/resources?type&payTo&scheme&network&extensions&limit&offset
+ *       -> { items, total, limit, offset }
+ *
+ * Never throws. Returns `{ ok:true, ... }` or `{ ok:false, code, reason }`.
+ */
+
+import { ERROR_CODES, fail, loadConfig } from './pay.mjs';
+
+const errText = (e) => (e instanceof Error ? e.message : String(e ?? 'unknown error'));
+
+async function getJson(url, timeoutMs = 8000) {
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch (err) {
+    const to = /abort|timeout/i.test(errText(err));
+    return fail(
+      to ? 'SEXTANT_TIMEOUT' : 'SEXTANT_INDEX_UNREACHABLE',
+      to
+        ? `The bazaar index at ${url} did not answer within ${timeoutMs}ms.`
+        : `The bazaar index is not reachable at ${url} (${errText(err)}). Start it with \`npm run dev\` in apps/facilitator.`
+    );
+  }
+  const text = await res.text().catch(() => '');
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    return fail('SEXTANT_INDEX_ERROR', `The bazaar index returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
+  }
+  if (!res.ok) {
+    return fail(
+      'SEXTANT_INDEX_ERROR',
+      `The bazaar index returned HTTP ${res.status}: ${json?.error || json?.reason || text.slice(0, 200) || 'no body'}`
+    );
+  }
+  return { ok: true, json };
+}
+
+/** Normalise whatever the index returns into an array of records. */
+function itemsOf(json) {
+  if (Array.isArray(json)) return json;
+  if (Array.isArray(json?.items)) return json.items;
+  if (Array.isArray(json?.results)) return json.results;
+  if (Array.isArray(json?.resources)) return json.resources;
+  return [];
+}
+
+/** Project a record down to the agent-facing summary shape. */
+export function summarise(rec, extra = {}) {
+  return {
+    id: rec?.id ?? rec?.resource?.url ?? null,
+    url: rec?.resource?.url ?? null,
+    serviceName: rec?.resource?.serviceName ?? null,
+    description: rec?.resource?.description ?? null,
+    tags: rec?.resource?.tags ?? [],
+    type: rec?.type ?? null,
+    network: rec?.network ?? null,
+    scheme: rec?.scheme ?? null,
+    payTo: rec?.payTo ?? null,
+    asset: rec?.asset ?? null,
+    maxAmountRequired: rec?.maxAmountRequired ?? null,
+    settlements: rec?.settlements ?? 0,
+    lastSeenAt: rec?.lastSeenAt ?? null,
+    ...extra
+  };
+}
+
+/**
+ * Ranked natural-language search.
+ * @returns {Promise<{ok:true,items:Array,partialResults:boolean,pagination:object,source:string}|{ok:false,code,reason}>}
+ */
+export async function search({ query, limit = 5, network, maxPrice, type, payTo, config } = {}) {
+  if (!query || typeof query !== 'string' || !query.trim()) {
+    return fail('SEXTANT_BAD_REQUEST', 'A non-empty `query` string is required for sextant_search.');
+  }
+  const cfg = loadConfig(config || {});
+  const u = new URL(`${cfg.indexUrl}/discovery/search`);
+  u.searchParams.set('query', query.trim());
+  u.searchParams.set('limit', String(clampLimit(limit)));
+  if (network) u.searchParams.set('network', network);
+  if (type) u.searchParams.set('type', type);
+  if (payTo) u.searchParams.set('payTo', payTo);
+
+  const res = await getJson(u.toString());
+  if (!res.ok) return res;
+
+  let items = itemsOf(res.json).map((r) => summarise(r, { _explain: r?._explain ?? null, score: r?.score ?? r?._explain?.score ?? null }));
+
+  if (maxPrice !== undefined && maxPrice !== null && String(maxPrice) !== '') {
+    let ceiling;
+    try {
+      ceiling = BigInt(String(maxPrice));
+    } catch {
+      return fail('SEXTANT_BAD_REQUEST', `maxPrice "${maxPrice}" must be an integer amount in atomic units.`);
+    }
+    const before = items.length;
+    items = items.filter((i) => {
+      try {
+        return BigInt(String(i.maxAmountRequired ?? '0')) <= ceiling;
+      } catch {
+        return false;
+      }
+    });
+    if (items.length === 0 && before > 0) {
+      return fail(
+        'SEXTANT_NO_RESULTS',
+        `${before} resource(s) matched "${query}" but all of them price above the caller's budget of ${maxPrice} atomic units.`
+      );
+    }
+  }
+
+  if (items.length === 0) {
+    return fail(
+      'SEXTANT_NO_RESULTS',
+      `No resource in the bazaar index matched "${query}"${network ? ` on ${network}` : ''}. ` +
+        `The index holds ${res.json?.total ?? 'an unknown number of'} records; try broader terms or sextant_browse.`
+    );
+  }
+
+  return {
+    ok: true,
+    query: query.trim(),
+    items,
+    partialResults: Boolean(res.json?.partialResults),
+    pagination: res.json?.pagination ?? { limit: clampLimit(limit), cursor: null },
+    source: cfg.indexUrl
+  };
+}
+
+/** Unranked catalogue listing with filters. */
+export async function browse({ type, payTo, network, scheme, extensions, limit = 20, offset = 0, config } = {}) {
+  const cfg = loadConfig(config || {});
+  const u = new URL(`${cfg.indexUrl}/discovery/resources`);
+  if (type) u.searchParams.set('type', type);
+  if (payTo) u.searchParams.set('payTo', payTo);
+  if (network) u.searchParams.set('network', network);
+  if (scheme) u.searchParams.set('scheme', scheme);
+  if (extensions) u.searchParams.set('extensions', Array.isArray(extensions) ? extensions.join(',') : String(extensions));
+  u.searchParams.set('limit', String(clampLimit(limit, 100)));
+  u.searchParams.set('offset', String(Math.max(0, Number(offset) || 0)));
+
+  const res = await getJson(u.toString());
+  if (!res.ok) return res;
+
+  const items = itemsOf(res.json).map((r) => summarise(r));
+  if (items.length === 0) {
+    return fail(
+      'SEXTANT_NO_RESULTS',
+      `The bazaar index returned no resources for these filters ` +
+        `(${JSON.stringify({ type, payTo, network, scheme, extensions })}). The catalogue may still be empty.`
+    );
+  }
+  return {
+    ok: true,
+    items,
+    total: res.json?.total ?? items.length,
+    limit: res.json?.limit ?? clampLimit(limit, 100),
+    offset: res.json?.offset ?? Number(offset) || 0,
+    source: cfg.indexUrl
+  };
+}
+
+/**
+ * Full metadata for one resource id, including per-parameter descriptions so an
+ * agent can construct a valid call with no external docs.
+ */
+export async function describe({ id, config } = {}) {
+  if (!id || typeof id !== 'string' || !id.trim()) {
+    return fail('SEXTANT_BAD_REQUEST', 'A non-empty resource `id` is required for sextant_describe.');
+  }
+  const cfg = loadConfig(config || {});
+  const wanted = id.trim();
+
+  // The index has no by-id route in the contract, so resolve through the two
+  // documented endpoints: exact-id scan over the catalogue, then search fallback.
+  const listed = await getJson(`${cfg.indexUrl}/discovery/resources?limit=100`);
+  if (!listed.ok) return listed;
+
+  let rec = itemsOf(listed.json).find((r) => r?.id === wanted || r?.resource?.url === wanted);
+
+  if (!rec) {
+    const u = new URL(`${cfg.indexUrl}/discovery/search`);
+    u.searchParams.set('query', wanted);
+    u.searchParams.set('limit', '25');
+    const found = await getJson(u.toString());
+    if (found.ok) rec = itemsOf(found.json).find((r) => r?.id === wanted || r?.resource?.url === wanted);
+  }
+
+  if (!rec) {
+    return fail(
+      'SEXTANT_NOT_FOUND',
+      `No resource with id "${wanted}" is registered in the bazaar index at ${cfg.indexUrl}. ` +
+        `Use sextant_search or sextant_browse to obtain a valid id.`
+    );
+  }
+
+  return { ok: true, ...describeRecord(rec), source: cfg.indexUrl };
+}
+
+/** Turn a raw bazaar record into a call-construction brief. Pure — also used offline. */
+export function describeRecord(rec) {
+  const params = normaliseParams(rec);
+  return {
+    id: rec?.id ?? rec?.resource?.url ?? null,
+    resource: rec?.resource ?? null,
+    type: rec?.type ?? null,
+    network: rec?.network ?? null,
+    scheme: rec?.scheme ?? null,
+    payTo: rec?.payTo ?? null,
+    asset: rec?.asset ?? null,
+    maxAmountRequired: rec?.maxAmountRequired ?? null,
+    routeTemplate: rec?.routeTemplate ?? null,
+    extensions: rec?.extensions ?? [],
+    settlements: rec?.settlements ?? 0,
+    lastSeenAt: rec?.lastSeenAt ?? null,
+    input: rec?.input ?? null,
+    output: rec?.output ?? null,
+    parameters: params,
+    howToCall: {
+      tool: 'sextant_pay',
+      url: rec?.resource?.url ?? null,
+      method: rec?.input?.method ?? (rec?.type === 'mcp' ? 'MCP' : 'GET'),
+      params: Object.fromEntries(params.map((p) => [p.name, p.example ?? `<${p.type || 'string'}>`])),
+      note:
+        rec?.type === 'mcp'
+          ? `MCP tool "${rec?.input?.toolName ?? 'unknown'}" — call the upstream MCP server; sextant_pay covers the HTTP-facing 402 leg.`
+          : 'sextant_pay performs the 402 challenge, signs the Soroban auth entry with PAYER_SECRET and retries.'
+    }
+  };
+}
+
+/** Flatten queryParams / body / JSON-Schema inputSchema into one parameter list. */
+function normaliseParams(rec) {
+  const out = [];
+  const push = (name, spec, where) => {
+    if (!name) return;
+    const s = spec && typeof spec === 'object' ? spec : {};
+    out.push({
+      name,
+      in: where,
+      type: s.type ?? (typeof spec === 'string' ? spec : 'string'),
+      required: Boolean(s.required) || (Array.isArray(spec?.required) ? false : false),
+      description: s.description ?? (typeof spec === 'string' ? spec : null),
+      enum: s.enum ?? null,
+      example: s.example ?? s.default ?? null
+    });
+  };
+
+  const qp = rec?.input?.queryParams;
+  if (qp && typeof qp === 'object') for (const [k, v] of Object.entries(qp)) push(k, v, 'query');
+
+  const body = rec?.input?.body;
+  if (body && typeof body === 'object') for (const [k, v] of Object.entries(body)) push(k, v, 'body');
+
+  const schema = rec?.input?.inputSchema;
+  if (schema && typeof schema === 'object' && schema.properties) {
+    const required = new Set(Array.isArray(schema.required) ? schema.required : []);
+    for (const [k, v] of Object.entries(schema.properties)) {
+      push(k, v, 'mcp-argument');
+      const last = out[out.length - 1];
+      if (last) last.required = required.has(k);
+    }
+  }
+  return out;
+}
+
+function clampLimit(n, max = 50) {
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return 5;
+  return Math.min(Math.floor(v), max);
+}
+
+export { ERROR_CODES };

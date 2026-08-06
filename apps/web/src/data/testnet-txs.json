@@ -1,0 +1,27 @@
+[
+  {
+    "hash": "c58e68b9b822f2b7da15288e7480ac3d3de44af10a00a008517fb7dc74b71f22",
+    "label": "PREGO SAC deploy — asset bootstrap",
+    "source": "demo"
+  },
+  {
+    "hash": "1973d58eef2b470b7ec496e7163ef5f7d25f251c79b2ce211689c5e031869070",
+    "label": "settle — leitor de NF-e",
+    "source": "demo"
+  },
+  {
+    "hash": "46c5d8b51c365017f111ecb6bd2cd2d0bce4cc6fea796a9c41d4238db8206c1e",
+    "label": "settle — enriquecimento CNPJ",
+    "source": "demo"
+  },
+  {
+    "hash": "13a606f0b15ec8e707ccf9ff1c5ff540c9e1627eece892efd8fdafc1c815eab6",
+    "label": "settle — conciliação PIX (MCP)",
+    "source": "demo"
+  },
+  {
+    "hash": "34ea2c3043462048d021184634f752132172f19143450aa35e8260a1df4b1cd1",
+    "label": "settle — geocodificação de CEP",
+    "source": "demo"
+  }
+]

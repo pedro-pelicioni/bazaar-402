@@ -1,11 +1,10 @@
 <div align="center">
 
-# PREGÃO
+# SEXTANT
 
-**A camada de descoberta nativa em Stellar para APIs pagas via x402.**
-*The Stellar-native discovery layer for x402 paid APIs.*
+**Find what to pay for on Stellar.**
 
-Agentes anunciam. Agentes descobrem. Agentes pagam. Tudo em um round-trip HTTP.
+Discovery for the x402 economy — the facilitator-side Bazaar index, and the whole loop around it.
 
 `Apache-2.0` · `stellar:testnet` · Stellar Summit SP 2026 — sub-lane 3A, Agentic Payments (x402 / MPP)
 
@@ -13,127 +12,124 @@ Agentes anunciam. Agentes descobrem. Agentes pagam. Tudo em um round-trip HTTP.
 
 ---
 
-> **pregão** *(s.m., pt-BR)* — o grito do leiloeiro que anuncia um lote; também a sessão de
-> negociação em um mercado. Um mercado só existe quando alguém consegue **ouvir** o que está
-> à venda.
+> A **sextant** fixes your position by the stars. It does not move you — it tells you where
+> you are and what bearing to take. An agent holding money and an HTTP client has the same
+> problem: it can pay, but it cannot yet see what is out there to pay for.
 
-## O problema
+## The problem
 
-Em Stellar, o **pagamento** x402 está resolvido. O pacote Apache-2.0 [`@x402/stellar`](https://www.npmjs.com/package/@x402/stellar)
-(v2.21.0, publicado em 04/ago/2026) entrega `verify` e `settle` para o scheme `exact`, a
-spec [`scheme_exact_stellar.md`](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_stellar.md)
-está estável, e a SDF já publicou um facilitator de exemplo.
+On Stellar, x402 **settlement** is solved. The Apache-2.0 [`@x402/stellar`](https://www.npmjs.com/package/@x402/stellar)
+package (v2.21.0, published 4 Aug 2026) ships `verify` and `settle` for the `exact` scheme,
+[`scheme_exact_stellar.md`](https://github.com/x402-foundation/x402/blob/main/specs/schemes/exact/scheme_exact_stellar.md)
+is stable, and the SDF publishes a reference facilitator.
 
-A **descoberta**, não. E sem descoberta um agente não tem como saber *o que* pagar.
+**Discovery is not.** And without discovery, an agent has no way to know *what* to pay for.
 
-- A spec [`specs/extensions/bazaar.md`](https://github.com/x402-foundation/x402/blob/main/specs/extensions/bazaar.md)
-  define `/discovery/resources` e `/discovery/search` — mas é só spec.
-- O pacote `@x402/extensions/bazaar` diz explicitamente, no próprio README, que entrega
-  **apenas helpers de client e server e nenhuma implementação de catálogo/índice do lado
-  facilitator**.
-- A issue [`stellar/x402-stellar#50` — *Explore Bazaar support for Stellar*](https://github.com/stellar/x402-stellar/issues/50)
-  está **aberta e sem assignee desde abril de 2026**. O Dockerfile do repositório da SDF
-  carrega o comentário `bazaar not used`.
+- The [`bazaar` extension spec](https://github.com/x402-foundation/x402/blob/main/specs/extensions/bazaar.md)
+  defines `/discovery/resources` and `/discovery/search` — but it is only a spec.
+- The upstream `@x402/extensions/bazaar` package states in its own README that it ships
+  **only client and server helpers, and no facilitator-side catalog implementation**.
+- [`stellar/x402-stellar#50` — *Explore Bazaar support for Stellar*](https://github.com/stellar/x402-stellar/issues/50)
+  has been **open and unassigned since April 2026**. The SDF repo's Dockerfile still carries
+  the comment `bazaar not used`.
 
-**PREGÃO é a peça que está faltando** — e o loop inteiro em volta dela, verticalmente
-integrado e rodando em testnet.
+**SEXTANT builds the missing piece** — and the entire loop around it, vertically integrated
+and running end to end on `stellar:testnet`.
 
-## O que está aqui
+## Architecture
 
 ```
-seller  ──declara metadata──►  ÍNDICE PREGÃO  ◄──busca em linguagem natural──  agente
-   │                                 ▲                                            │
-   │                                 │ auto-cataloging via extensão bazaar        │
-   └──────────►  FACILITATOR (auto-hospedado)  ◄────── 402 → assina → settle ─────┘
-                          │
-                    stellar:testnet
+ seller ──declares metadata──►  SEXTANT INDEX  ◄──natural-language search──  agent
+    │                                ▲                                          │
+    │                                │ auto-cataloged on settle (bazaar ext)    │
+    └──────────►  SELF-HOSTED FACILITATOR  ◄────── 402 → sign → settle ─────────┘
+                            │
+                      stellar:testnet
 ```
 
-| Componente | O que é | Requisito do RFP SCF #45 |
+| Component | What it is | SCF #45 RFP requirement |
 |---|---|---|
-| `packages/index` | Catálogo + busca híbrida BM25 com ranking explicável, validação de integridade | **3.2** (o pedaço de maior valor do RFP) |
-| `apps/facilitator` | Facilitator x402 **auto-hospedado** sobre `@x402/stellar`, taxas patrocinadas | **3.1** |
-| `apps/seller` | API paga declarando metadata de discovery, com descrição por parâmetro | **3.2** (seller helpers) |
-| `apps/agent` | Servidor MCP + cliente: descobrir → 402 → pagar → consumir | **3.3** |
-| `apps/web` | Landing page + console ao vivo com o *lot board* e o loop de pagamento | — |
-| `test/` | Suite adversarial de envenenamento de catálogo | **3.2** (integridade), **3.6** |
+| `packages/index` | Catalog + BM25 hybrid search with explainable ranking, plus catalog-integrity validation | **3.2** — the RFP's highest-value scope |
+| `apps/facilitator` | **Self-hosted** x402 facilitator on `@x402/stellar`, sponsoring network fees | **3.1** |
+| `apps/seller` | Paid API declaring discovery metadata with per-parameter descriptions | **3.2** — seller helpers |
+| `apps/agent` | MCP server + client: discover → 402 → pay → consume | **3.3** |
+| `apps/web` | Landing page + live console with the Sight Board and the payment loop | — |
+| `test/` | Adversarial catalog-poisoning suite | **3.2** integrity, **3.6** conformance |
 
-## Dois blockers, removidos por design
+## Two blockers removed by design
 
-Este projeto foi construído numa janela de poucas horas. As duas coisas que normalmente
-travam um setup de x402 em Stellar foram eliminadas — e não por atalho, mas por decisões
-que também são **melhores arquiteturalmente**:
+This was built in a single afternoon. The two things that normally stall an x402 setup on
+Stellar were eliminated — not by shortcut, but by decisions that are also architecturally
+better:
 
-**1. Sem faucet, sem captcha.** Em vez de depender do faucet web da Circle para conseguir
-USDC de testnet, o PREGÃO **emite seu próprio ativo SEP-41** (`PREGO`) e faz o wrap no SAC.
-A spec do scheme `exact` para Stellar aceita qualquer token SEP-41 — USDC é apenas o
-default. Resultado: `npm run setup` roda do zero ao fim sem nenhum formulário web.
+**1. No faucet, no captcha.** Rather than depending on Circle's web faucet for testnet USDC,
+SEXTANT **issues its own SEP-41 asset** (`SXT`) and wraps it in a SAC. The Stellar `exact`
+scheme accepts any SEP-41 token — USDC is only the default. `npm run setup` therefore runs
+start to finish with no web forms and no API keys.
 
-**2. Sem dependência de facilitator de terceiro.** O facilitator é **auto-hospedado**,
-construído sobre o `@x402/stellar` Apache-2.0. Isso remove a dependência do
-OpenZeppelin Relayer / OZ Channels — que é **AGPL-3.0-or-later** e, portanto, inviável para
-qualquer projeto que precise de licença permissiva — e ao mesmo tempo demonstra o caminho de
-*self-facilitation* que o RFP pede em 3.1.
+**2. No third-party facilitator.** The facilitator is **self-hosted**, built on the
+Apache-2.0 package. That removes any dependency on the OpenZeppelin Relayer / OZ Channels —
+which is **AGPL-3.0-or-later**, and therefore unusable by any project that needs a permissive
+license — while demonstrating the self-facilitation path the RFP asks for in 3.1.
 
-O `FEEPAYER` patrocina as taxas de rede: o agente pagante precisa de **zero XLM**.
+The `FEEPAYER` account sponsors network fees, so the paying agent needs **zero XLM**.
 
-## Rodando
+## Running it
 
 ```bash
 npm install
-npm run setup      # gera contas, emite o ativo PREGO, cria trustlines — tudo na testnet
-npm run dev:all    # facilitator :4021 · índice :4022 · seller :4023 · web :5173
-npm run demo       # loop completo: descobre → 402 → assina → settle → 200
+npm run setup      # generates accounts, issues the SXT asset, adds trustlines — all testnet
+npm run dev:all    # facilitator :4021 · index :4022 · seller :4023 · web :5173
+npm run demo       # full loop: discover → 402 → sign → settle → 200
 ```
 
-Sem chaves de API. Sem captcha. Sem mainnet. Sem dinheiro real.
+No API keys. No captcha. No mainnet. No real money.
 
-## Ranking de busca
+## Search ranking
 
-O RFP SCF #45 afirma que a qualidade da busca é a parte mais difícil do escopo e a que os
-catálogos existentes mais deixam por implementar. Concordamos, e por isso o ranking aqui não
-é um `.includes()`:
+The SCF #45 RFP states that search quality is the hardest part of the scope and the part
+existing catalogs most often leave unimplemented. We agree — so the ranking here is not a
+`.includes()` filter:
 
-- **BM25** (k1=1.2, b=0.75) sobre um documento com pesos por campo — nome do serviço,
-  descrição, tags, nomes e descrições de parâmetros, formato de saída, segmentos da URL.
-- **Tokenização PT + EN** — normalização de acentos, stopwords das duas línguas.
-- **Sinal de qualidade** — completude da metadata, `log1p(settlements)` e decaimento por
-  recência.
-- **`_explain` por resultado** — a UI mostra *por que* cada lote ranqueou onde ranqueou.
+- **BM25** (k1=1.2, b=0.75) over a field-weighted document: service name, description, tags,
+  parameter names and their per-parameter descriptions, output format, URL path segments.
+- **Bilingual tokenization** — accent folding plus Portuguese and English stopword sets, so a
+  catalog of LatAm services is retrievable in either language.
+- **A quality signal** — metadata completeness, `log1p(settlements)`, and recency decay.
+- **Per-result `_explain`** — the console shows *why* each result ranked where it did.
 
-O problema honesto de cold-start e o método de avaliação proposto (nDCG@10, Recall@20, MRR
-sobre um query set rotulado) estão documentados em [`docs/SEARCH-QUALITY.md`](docs/SEARCH-QUALITY.md).
+The honest cold-start problem and the proposed evaluation method (nDCG@10, Recall@20, MRR
+over a labeled query set) are written up in [`docs/SEARCH-QUALITY.md`](docs/SEARCH-QUALITY.md).
 
-## Integridade do catálogo
+## Catalog integrity
 
-O facilitator é uma **fronteira de confiança**. O cliente ecoa o bloco `resource` de volta
-dentro do payload de pagamento, então toda metadata de discovery é entrada controlada pelo
-atacante. Implementamos as regras de *soft drop* da spec e as testamos adversarialmente:
+The facilitator is a **trust boundary**. Clients echo the `resource` block back inside the
+payment payload, so every discovery field is attacker-controlled. We implement the spec's
+soft-drop rules and test them adversarially:
 
-- `routeTemplate` — a regex normativa `^/[a-zA-Z0-9_/:.\-~%]+$` **permite `%`**, então o
-  check de `..` precisa acontecer **após percent-decoding**, inclusive contra
-  double-encoding (`%252e%252e`). Testado.
-- `iconUrl` — evasões de SSRF: `127.0.0.1`, forma decimal `2130706433`, `[::1]`, `0.0.0.0`,
-  `data:`. Testado.
-- `serviceName` / `tags` — caracteres de controle, limites de tamanho, dedupe
-  case-insensitive, e o invariante que importa: **um campo inválido é descartado, a metadata
-  ao redor sobrevive**. Testado.
+- **`routeTemplate`** — the normative regex `^/[a-zA-Z0-9_/:.\-~%]+$` **permits `%`**, so the
+  `..` check must run **after percent-decoding**, including against double-encoding
+  (`%252e%252e`). Tested.
+- **`iconUrl`** — SSRF evasions: `127.0.0.1`, decimal `2130706433`, `[::1]`, `0.0.0.0`,
+  `data:`. Tested.
+- **`serviceName` / `tags`** — control characters, length caps, case-insensitive dedupe, and
+  the invariant that matters: **an invalid field is dropped, the surrounding metadata
+  survives**. Tested.
 
 ```bash
 npm test
 ```
 
-## Transações em testnet
+## Testnet transactions
 
-Hashes reais produzidos por este código estão em [`docs/TESTNET-TXS.md`](docs/TESTNET-TXS.md),
-com links para o explorer.
+Real hashes produced by this code, with explorer links: [`docs/TESTNET-TXS.md`](docs/TESTNET-TXS.md).
 
-## Licença
+## License
 
-Apache-2.0, público desde o primeiro commit.
+Apache-2.0, public from the first commit.
 
 ---
 
 <div align="center">
-Construído em São Paulo para o Stellar Summit SP 2026.
+Built in São Paulo for Stellar Summit SP 2026.
 </div>

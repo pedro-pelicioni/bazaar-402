@@ -1,4 +1,4 @@
-# PREGÃO — Integration Contract (read this first)
+# SEXTANT — Integration Contract (read this first)
 
 Monorepo, plain npm workspaces, Node 22, ESM (`"type": "module"`). No TypeScript build step
 anywhere except `apps/web` (Vite). Everything must run with `node <file>.mjs` or `npm run dev`.
@@ -22,15 +22,15 @@ STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 HORIZON_URL=https://horizon-testnet.stellar.org
 NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 
-ISSUER_SECRET=S...        # issues the PREGO SEP-41 test asset
+ISSUER_SECRET=S...        # issues the SXT SEP-41 test asset
 ISSUER_PUBLIC=G...
-ASSET_CODE=PREGO
+ASSET_CODE=SXT
 ASSET_SAC=C...            # SAC contract id — this is `asset` in PaymentRequirements
 
-SELLER_SECRET=S...        # payTo account (has PREGO trustline)
+SELLER_SECRET=S...        # payTo account (has SXT trustline)
 SELLER_PUBLIC=G...
 
-PAYER_SECRET=S...         # the agent's wallet (has PREGO trustline + balance)
+PAYER_SECRET=S...         # the agent's wallet (has SXT trustline + balance)
 PAYER_PUBLIC=G...
 
 FEEPAYER_SECRET=S...      # facilitator sponsors network fees (RFP 3.1 areFeesSponsored)

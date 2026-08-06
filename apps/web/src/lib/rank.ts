@@ -1,0 +1,142 @@
+import type { Explain, PregaoRecord } from './types'
+
+/**
+ * Client-side mirror of packages/index `scoreHybrid`: BM25 over boosted fields
+ * plus three catalog-health signals. Runs locally so the console still explains
+ * itself when the index is unreachable — and so the _explain panel always has
+ * something honest to show.
+ */
+
+const STOP = new Set([
+  'a','o','os','as','de','da','do','das','dos','que','com','para','por','um','uma','e','em','no','na',
+  'nos','nas','ao','aos','the','of','for','to','and','with','in','on','an','my','me','i','is','are','it',
+])
+
+const FIELD_BOOST: Record<string, number> = {
+  serviceName: 3.0,
+  tags: 2.2,
+  description: 1.0,
+  url: 0.6,
+}
+
+const WEIGHTS = { bm25: 0.55, metadata: 0.15, settlements: 0.18, recency: 0.12 }
+
+const K1 = 1.4
+const B = 0.72
+
+export function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+}
+
+export function tokenize(s: string): string[] {
+  return normalize(s)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 1 && !STOP.has(t))
+}
+
+type Fields = Record<string, string[]>
+
+function fieldsOf(r: PregaoRecord): Fields {
+  return {
+    serviceName: tokenize(r.resource?.serviceName ?? ''),
+    tags: tokenize((r.resource?.tags ?? []).join(' ')),
+    description: tokenize(r.resource?.description ?? ''),
+    url: tokenize(r.resource?.url ?? ''),
+  }
+}
+
+/** 0..1 — how completely the seller filled out the advertisement */
+export function metadataScore(r: PregaoRecord): { score: number; missing: string[] } {
+  const checks: [string, boolean][] = [
+    ['serviceName', Boolean(r.resource?.serviceName)],
+    ['description ≥ 80', (r.resource?.description ?? '').length >= 80],
+    ['tags ≥ 3', (r.resource?.tags ?? []).length >= 3],
+    ['iconUrl', Boolean(r.resource?.iconUrl)],
+    ['input schema', Boolean(r.input && Object.keys(r.input).length > 1)],
+    ['output example', Boolean((r.output as { example?: string })?.example)],
+    ['routeTemplate', Boolean(r.routeTemplate) || r.type === 'mcp'],
+  ]
+  const hit = checks.filter(([, ok]) => ok).length
+  return { score: hit / checks.length, missing: checks.filter(([, ok]) => !ok).map(([k]) => k) }
+}
+
+const settlementScore = (n: number) => Math.log10(1 + Math.max(0, n)) / Math.log10(1 + 5000)
+
+const recencyScore = (ts: number) => {
+  const hours = Math.max(0, (Date.now() - ts) / 3_600_000)
+  return Math.exp(-hours / 72)
+}
+
+export function rank(query: string, docs: PregaoRecord[]): PregaoRecord[] {
+  const q = tokenize(query)
+  const corpus = docs.map(fieldsOf)
+  const N = docs.length || 1
+
+  // avg length + document frequency per field
+  const avgdl: Record<string, number> = {}
+  const df: Record<string, Record<string, number>> = {}
+  for (const field of Object.keys(FIELD_BOOST)) {
+    avgdl[field] = corpus.reduce((a, f) => a + f[field].length, 0) / N || 1
+    df[field] = {}
+    for (const f of corpus) {
+      for (const t of new Set(f[field])) df[field][t] = (df[field][t] ?? 0) + 1
+    }
+  }
+
+  const scored = docs.map((doc, i) => {
+    const f = corpus[i]
+    let raw = 0
+    const terms: Explain['terms'] = []
+
+    for (const term of q) {
+      let best: Explain['terms'][number] | null = null
+      for (const field of Object.keys(FIELD_BOOST)) {
+        const toks = f[field]
+        if (!toks.length) continue
+        let tf = toks.filter((t) => t === term).length
+        let fuzzy = false
+        if (!tf && term.length >= 4) {
+          tf = toks.filter((t) => t.startsWith(term) || term.startsWith(t)).length * 0.75
+          fuzzy = tf > 0
+        }
+        if (!tf) continue
+        const n = df[field][term] ?? (fuzzy ? 1 : 0) || 1
+        const idf = Math.log(1 + (N - n + 0.5) / (n + 0.5))
+        const denom = tf + K1 * (1 - B + (B * toks.length) / avgdl[field])
+        const contrib = (idf * (tf * (K1 + 1))) / denom * FIELD_BOOST[field]
+        if (!best || contrib > best.weight) {
+          best = { term, field, tf: Math.round(tf * 100) / 100, idf: Math.round(idf * 100) / 100, weight: contrib }
+        }
+        raw += contrib
+      }
+      if (best) terms.push({ ...best, weight: Math.round(best.weight * 1000) / 1000 })
+    }
+
+    const bm25n = q.length ? raw / (raw + 6) : 0
+    const meta = metadataScore(doc)
+    const settle = settlementScore(doc.settlements ?? 0)
+    const rec = recencyScore(doc.lastSeenAt ?? Date.now())
+
+    const parts: Explain['parts'] = [
+      {
+        key: 'bm25',
+        value: bm25n * WEIGHTS.bm25,
+        detail: q.length
+          ? `BM25 bruto ${raw.toFixed(2)} · k1=${K1} b=${B} · campos ×${FIELD_BOOST.serviceName}/${FIELD_BOOST.tags}/${FIELD_BOOST.description}`
+          : 'sem consulta — texto não pontua',
+      },
+      { key: 'metadata', value: meta.score * WEIGHTS.metadata, detail: meta.missing.length ? `faltando: ${meta.missing.join(', ')}` : 'anúncio completo (7/7)' },
+      { key: 'settlements', value: settle * WEIGHTS.settlements, detail: `${(doc.settlements ?? 0).toLocaleString('pt-BR')} liquidações observadas (log)` },
+      { key: 'recency', value: rec * WEIGHTS.recency, detail: `meia-vida 72 h desde lastSeenAt` },
+    ]
+
+    const total = parts.reduce((a, p) => a + p.value, 0)
+    const _explain: Explain = { total, parts, terms: terms.sort((a, b) => b.weight - a.weight).slice(0, 6) }
+    return { ...doc, _explain }
+  })
+
+  return scored.sort((a, b) => (b._explain!.total ?? 0) - (a._explain!.total ?? 0))
+}

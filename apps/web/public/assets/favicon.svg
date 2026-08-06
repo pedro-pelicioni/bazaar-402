@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!--
+    PREGAO / favicon.svg
+    The lot mark reduced to pure geometry: ticker chevron struck above the
+    auction block. Two colours only - ink #0B0C0E, signal amber #FF7A18.
+    Tuned to stay legible at 16px: 4.5px strokes, no detail under 3px.
+  -->
+  <rect width="32" height="32" rx="7" fill="#0B0C0E"/>
+  <g fill="none" stroke="#FF7A18" stroke-width="4.5" stroke-linecap="square" stroke-linejoin="miter">
+    <!-- ticker chevron: the rise -->
+    <path d="M6.5 16.5 16 7 25.5 16.5"/>
+    <!-- shaft -->
+    <path d="M16 9.5V20"/>
+  </g>
+  <!-- the block: gavel strike surface -->
+  <rect x="6" y="23" width="20" height="4.5" fill="#FF7A18"/>
+</svg>
