@@ -65,15 +65,10 @@ the map.
 
 ## The public discovery API
 
-> **Status: not deployed yet.** The code, routing and CORS are in place and verified
-> locally (`npm run verify:api`, 36 checks), but `sextants.dev` still resolves to a
-> parked domain. **Nothing below is live until the first deploy lands** — treat these as
-> the commands that will work, not as commands that work today. See
-> [`docs/DEPLOY.md`](docs/DEPLOY.md).
-
-The same catalog that `packages/index` serves on `:4022` also deploys as Vercel
-functions, so the Bazaar becomes a **public, hosted endpoint any agent can call** —
-which is what the RFP asks for and what does not exist for Stellar anywhere else.
+**Live at [`sextants.dev`](https://sextants.dev).** The same catalog that `packages/index`
+serves on `:4022` also deploys as Vercel functions, so the Bazaar is a **public, hosted
+endpoint any agent can call** — which is what the RFP asks for, and what does not exist for
+Stellar anywhere else. Run the commands below and they answer.
 
 ```bash
 # Natural-language search over the catalog, ranked
@@ -90,6 +85,19 @@ curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' | jq '.total
 # Which mode the catalog is in, how many records, which commit is serving them
 curl -s https://sextants.dev/discovery/health | jq
 ```
+
+Real output, at the time of writing:
+
+```
+$ curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' …
+  0.8098  Invoice OCR
+
+$ curl -s https://sextants.dev/discovery/health …
+  mode=seed  records=27  writable=false  commit=3ff6d6a
+```
+
+`/discovery/health` reports the commit it is serving, so a claim in this README can always
+be checked against the code that is actually deployed.
 
 `GET /discovery/resources` and `GET /discovery/search` are spec-exact — the same field
 names, the same `partialResults`, the same `pagination { limit, cursor }` as
