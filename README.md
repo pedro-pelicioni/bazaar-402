@@ -16,6 +16,42 @@ Discovery for the x402 economy — the facilitator-side Bazaar index, and the wh
 > you are and what bearing to take. An agent holding money and an HTTP client has the same
 > problem: it can pay, but it cannot yet see what is out there to pay for.
 
+## Why this is not another paywall demo
+
+The sub-lane brief offers five example builds. Four of them are variations on the same
+thing: an agent paying for an API, a metered service, a channel-mode feed, a middleware kit.
+They are good examples. They are also all built on ground that is **already solved** — the
+RFP for SCF #45 says so in plain language: *"settlement on Stellar is largely solved; the
+novel work is discovery, the agent facing interface, the upto scheme upstream, and
+conformance that holds as the spec moves."*
+
+So we did not build a payment demo. We built the part that is missing, and then built the
+payment demo around it so you can see the missing part actually working.
+
+**SEXTANT is scoped against [SCF #45, RFP Track — "X402 Facilitator with Bazaar (discovery)
+support"](https://communityfund.stellar.org/), which names the Bazaar discovery layer as the
+highest-value part of the scope and says it should carry the largest share of the budget.**
+Every component below maps to a numbered requirement in that RFP, and the repository is
+structured so each one can be pointed at directly:
+
+| RFP requirement | What is in this repo | Status |
+|---|---|---|
+| **3.2 Bazaar discovery layer** — *"the core new capability"*, *"the hardest part of the scope"* | `packages/index` — spec-exact `/discovery/resources` and `/discovery/search`, BM25 hybrid ranking with a published formula and a per-result `_explain`, auto-cataloging from the discovery extension, soft-drop validation, `EXTENSION-RESPONSES` reporting | Working |
+| **3.2 catalog integrity** — *"the facilitator is a trust boundary"* | 66 adversarial tests: `routeTemplate` traversal under single/double/triple percent-encoding, `iconUrl` SSRF evasion, tag flooding, external `$ref` | 66/66 passing |
+| **3.1 Facilitator** — verify/settle/supported, fee sponsorship, self-facilitation | `apps/facilitator`, self-hosted on Apache-2.0 `@x402/stellar`, `extra.areFeesSponsored`, non-null reason on every rejection | Working, testnet |
+| **3.3 Agent-facing MCP interface** | `apps/agent` — 4 MCP tools with input **and** output schemas, 17-code error enum | Working, settled payments |
+| **3.6 Conformance** — *"drift, not inability, is the failure mode being screened for"* | Three wire-level divergences found by reading shipped code, documented below | Documented |
+| **3.2 seller helpers** — per-parameter descriptions that make an endpoint legible to an agent | `apps/seller`, declared via `declareDiscoveryExtension` | Working |
+
+What this is **not**, and deliberately so: no on-chain registry (the RFP calls it an optional
+stretch and explains the rent/TTL cost), no mainnet, no audit, no `upto` implementation —
+that scheme has [an active design discussion](https://github.com/stellar/x402-stellar/issues/72)
+opened on 3 August 2026 that deserves a real answer rather than a rushed one.
+
+The point is not to win a weekend. It is to leave behind a piece of public infrastructure
+that the Stellar ecosystem is currently missing, licensed permissively, that anyone can fork
+and run.
+
 ## The problem
 
 On Stellar, x402 **settlement** is solved. The Apache-2.0 [`@x402/stellar`](https://www.npmjs.com/package/@x402/stellar)
@@ -119,6 +155,26 @@ soft-drop rules and test them adversarially:
 ```bash
 npm test
 ```
+
+## Conformance findings
+
+We built against the shipped code rather than the documentation, and reading the published
+`dist` output turned up three places where the wire format has moved and the surrounding
+material has not. All three are handled in this repo; all three are worth an upstream issue.
+
+1. **x402 v2 `PaymentRequirements` uses `amount`, not `maxAmountRequired`.** Resource
+   metadata also moved to `PaymentRequired.resource` as a `ResourceInfo`. The v1 layout is
+   still what most examples show. Our facilitator and index read both shapes.
+2. **v2 signs into the `PAYMENT-SIGNATURE` header, not `X-PAYMENT`.** `X-PAYMENT` is the v1
+   header and is still what much of the surrounding documentation instructs. Our client sends
+   both.
+3. **`@x402/core` accepts a challenge in the JSON body only for v1.** For v2 it expects the
+   `PAYMENT-REQUIRED` header. A v2 resource server that answers 402 with a body — which is
+   the natural reading — is unreachable by a stock client. We added an `accepts`-array body
+   fallback; without it the paid loop was dead on arrival against our own seller.
+
+Point 3 in particular is the class of defect that only surfaces when an unmodified client is
+pointed at an independent server, which is exactly the acceptance test the RFP specifies.
 
 ## Testnet transactions
 
