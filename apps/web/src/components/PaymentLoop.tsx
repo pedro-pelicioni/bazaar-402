@@ -5,17 +5,35 @@ import type { SextantRecord } from '../lib/types'
 
 const DURATIONS = [1100, 1200, 1500, 800]
 
-/** deterministic pick so the same sight always shows the same settled tx */
+/**
+ * Only the `demo:` rows are x402 payments. The rest of docs/TESTNET-TXS.md is setup and
+ * housekeeping — trustlines, the asset issuance, the SAC deploy, a legacy-asset cleanup.
+ * Picking from all of them once produced a receipt that read "settled 0.0500 SXT" over
+ * the hash of a `changeTrust` operation, which is a small lie told confidently. Filter
+ * first, so the receipt can only ever point at a transaction that actually moved SXT.
+ */
+const paymentTxs = testnetTxs.filter((t) => /^demo:/i.test(t.label ?? ''))
+
+/** deterministic pick so the same sight always shows the same settled payment */
 function hashPick(id: string): string | undefined {
-  if (!testnetTxs.length) return undefined
+  const pool = paymentTxs.length ? paymentTxs : []
+  if (!pool.length) return undefined
   let h = 0
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0
-  return testnetTxs[h % testnetTxs.length]?.hash
+  return pool[h % pool.length]?.hash
 }
 
 /**
  * Traces one x402 round trip: 402 → sign → settle → 200.
- * The tx hash it lands on is a real settled testnet transaction.
+ *
+ * This is a REPLAY, and the UI says so. It walks the four stages on a timer and lands on
+ * a real settled testnet transaction drawn from docs/TESTNET-TXS.md — it does not settle
+ * a payment at click time. Settling live needs the resource server and the facilitator,
+ * which run locally (`npm run dev:all`); only the discovery index is deployed publicly.
+ *
+ * The hash is genuine, which is exactly why the label matters: a viewer who clicks
+ * through to stellar.expert sees `successful: true` and would otherwise reasonably
+ * conclude they had just triggered it.
  */
 export function PaymentLoop({ rec, runId }: { rec: SextantRecord | null; runId: number }) {
   const [stage, setStage] = useState(0)
@@ -98,6 +116,14 @@ fees   sponsored (areFeesSponsored: true)`,
         <span className="label" id="loop-h">
           Payment loop
         </span>
+        <span
+          className="source-pill"
+          style={{ marginLeft: '0.6rem' }}
+          title="This traces a settled payment step by step. It does not settle one now — the resource server and facilitator run locally. The hash below is from a real testnet run."
+        >
+          <span className="dot" />
+          replay
+        </span>
         <span className="label" style={{ marginLeft: 'auto', color: 'var(--fg-3)' }}>
           {stage >= 4 ? 'settled' : `step ${Math.min(stage + 1, 4)} / 4`}
         </span>
@@ -155,6 +181,12 @@ fees   sponsored (areFeesSponsored: true)`,
               >
                 {shortHash(hash)} ↗ stellar.expert
               </a>
+            ) : null}
+            {hash ? (
+              <p className="step__note" style={{ marginTop: '0.7rem' }}>
+                Hash from a real settled run on Stellar testnet — open it and check. Run{' '}
+                <code>npm run dev:all</code> to settle live against your own facilitator.
+              </p>
             ) : (
               <p className="receipt__row">
                 <span>tx</span>
