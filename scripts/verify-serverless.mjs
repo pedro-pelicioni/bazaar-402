@@ -22,7 +22,7 @@
  *   node scripts/verify-serverless.mjs
  */
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 
@@ -498,33 +498,47 @@ async function main() {
     eq(resolve('/discovery/search'), '/api/discovery/search', '/discovery/search');
     eq(resolve('/discovery/resources'), '/api/discovery/resources', '/discovery/resources');
     eq(resolve('/discovery/health'), '/api/discovery/health', '/discovery/health');
-    // The whole namespace belongs to the API: an unknown /discovery/* path must 404 from
-    // a missing function, not silently render the single-page app.
-    eq(resolve('/discovery/nope'), '/api/discovery/nope', 'unknown /discovery paths stay in the API');
+    // The whole namespace belongs to the API: an unknown /discovery/* path must 404 as
+    // JSON, not silently render the single-page app.
+    //
+    // This assertion used to expect '/api/discovery/nope' — pointing the guard at a
+    // destination that does not exist, on the assumption that Vercel would 404 it.
+    // Production disproved that: a rewrite whose destination has no function behind it
+    // falls through to the NEXT rule, which is the SPA catch-all, so /discovery/nope
+    // answered 200 text/html. The guard now targets one concrete function instead.
+    eq(resolve('/discovery/nope'), '/api/discovery/unknown', 'unknown /discovery paths stay in the API');
     eq(resolve('/console'), '/index.html', 'the SPA still catches its own routes');
     eq(resolve('/'), '/index.html', 'the landing page still resolves');
   });
 
   await check('each fixed rewrite destination has a function file behind it', () => {
+    // Every /api/ destination must resolve to a file — including the `/discovery/:path*`
+    // guard, which is the whole point: a destination with no function behind it does not
+    // 404, it falls through to the next rewrite.
     let checked = 0;
     for (const rule of vercelJson.rewrites ?? []) {
-      // The `/discovery/:path*` guard deliberately points at paths that do not exist, so
-      // an unknown endpoint 404s from the API instead of rendering the SPA.
       if (!rule.destination.startsWith('/api/') || rule.destination.includes(':')) continue;
       readFileSync(fileURLToPath(new URL(`.${rule.destination}.mjs`, ROOT)), 'utf8');
       checked++;
     }
-    eq(checked, 3, 'expected three concrete function routes');
+    eq(checked, 4, 'expected four concrete function routes (three endpoints + the guard)');
   });
 
   await check('the functions glob in vercel.json matches the files that exist', () => {
     const keys = Object.keys(vercelJson.functions ?? {});
     assert(keys.length > 0, 'no functions configuration');
-    assert(keys.some((k) => k === 'api/discovery/*.mjs'), `unexpected functions globs: ${keys.join(', ')}`);
+    assert(keys.some((k) => k === 'api/**/*.mjs'), `unexpected functions globs: ${keys.join(', ')}`);
     // api/**/*.+(js|mjs|ts|tsx) is the zero-config glob Vercel uses to find functions,
     // so .mjs under api/ is picked up without further configuration.
-    for (const name of ['resources', 'search', 'health']) {
+    for (const name of ['resources', 'search', 'health', 'unknown']) {
       readFileSync(fileURLToPath(new URL(`api/discovery/${name}.mjs`, ROOT)), 'utf8');
+    }
+    // Function filenames must be literal. A bracketed dynamic-route name such as
+    // `[...path].mjs` is read as a character class by the glob above, so includeFiles
+    // never matches it, the packages/index import is never traced, and the function
+    // silently never deploys.
+    for (const f of readdirSync(fileURLToPath(new URL('api/discovery', ROOT)))) {
+      assert(!/[[\]]/.test(f), `bracketed function filename will not deploy reliably: ${f}`);
     }
   });
 

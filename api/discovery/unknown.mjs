@@ -9,8 +9,17 @@
  * reason.
  *
  * So: a real function that always exists, answers 404, and names what it does serve.
- * Vercel resolves concrete filenames before a catch-all, so resources / search / health
- * are unaffected.
+ *
+ * The filename is deliberately plain. The first attempt used Vercel's dynamic-route form,
+ * `[...path].mjs`, and the function silently never deployed — the `functions` glob in
+ * vercel.json reads `[...]` as a character class rather than a literal name, so the
+ * `includeFiles` entry never matched, the import of packages/index was never traced, and
+ * the rewrite pointed at a destination that did not exist. Vercel then fell through to
+ * the SPA catch-all and answered 200 text/html: the exact bug this file exists to fix.
+ *
+ * Instead, the rewrite `/discovery/:path*` targets this one concrete path. The three
+ * specific rewrites are declared before it and win, so resources / search / health are
+ * unaffected.
  */
 
 import { handlePreflight, sendJson } from '../../packages/index/src/serverless.mjs';

@@ -5,30 +5,57 @@
   "outputDirectory": "apps/web/dist",
   "framework": null,
   "functions": {
-    "api/discovery/*.mjs": {
+    "api/**/*.mjs": {
       "includeFiles": "packages/index/src/**"
     }
   },
   "rewrites": [
-    { "source": "/discovery/resources", "destination": "/api/discovery/resources" },
-    { "source": "/discovery/search", "destination": "/api/discovery/search" },
-    { "source": "/discovery/health", "destination": "/api/discovery/health" },
-    { "source": "/discovery/:path*", "destination": "/api/discovery/:path*" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/discovery/resources",
+      "destination": "/api/discovery/resources"
+    },
+    {
+      "source": "/discovery/search",
+      "destination": "/api/discovery/search"
+    },
+    {
+      "source": "/discovery/health",
+      "destination": "/api/discovery/health"
+    },
+    {
+      "source": "/discovery/:path*",
+      "destination": "/api/discovery/unknown"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/assets/(.*)\\.(png|jpg|jpeg|svg|webp|avif)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
       ]
     },
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        }
       ]
     }
   ]
