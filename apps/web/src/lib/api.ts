@@ -1,0 +1,173 @@
+import fixtureRaw from '../data/fixture.json'
+import txsRaw from '../data/testnet-txs.json'
+import { rank } from './rank'
+import type { Catalog, IntegrityEntry, PregaoRecord, TxEntry } from './types'
+
+export const INDEX_URL: string =
+  (import.meta.env.VITE_INDEX_URL as string | undefined)?.replace(/\/$/, '') ??
+  'http://localhost:4022'
+
+export const ASSET_CODE = 'SXT'
+const TIMEOUT_MS = 1400
+
+async function getJSON(path: string): Promise<unknown> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS)
+  try {
+    const res = await fetch(`${INDEX_URL}${path}`, {
+      signal: ctrl.signal,
+      headers: { accept: 'application/json' },
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The index (or another agent's fixture) may hand us several shapes. Take them all. */
+function pickItems(payload: unknown): PregaoRecord[] {
+  if (Array.isArray(payload)) return payload as PregaoRecord[]
+  const o = (payload ?? {}) as Record<string, unknown>
+  for (const key of ['items', 'resources', 'records', 'results', 'data']) {
+    const v = o[key]
+    if (Array.isArray(v)) return v as PregaoRecord[]
+  }
+  return []
+}
+
+function pickIntegrity(payload: unknown): IntegrityEntry[] {
+  const o = (payload ?? {}) as Record<string, unknown>
+  for (const key of ['integrity', 'rejected', 'dropped', 'items']) {
+    const v = o[key]
+    if (Array.isArray(v) && v.length && typeof (v[0] as IntegrityEntry)?.rule === 'string') {
+      return v as IntegrityEntry[]
+    }
+  }
+  return []
+}
+
+/** Guard against a partly-filled record so one bad row can never blank the board. */
+function sane(r: PregaoRecord): PregaoRecord {
+  const url = r?.resource?.url ?? r?.id ?? 'unknown://resource'
+  return {
+    ...r,
+    id: r?.id ?? url,
+    resource: {
+      url,
+      serviceName: r?.resource?.serviceName || url.replace(/^https?:\/\//, ''),
+      tags: Array.isArray(r?.resource?.tags) ? r.resource.tags.slice(0, 16) : [],
+      description: r?.resource?.description ?? '',
+      iconUrl: r?.resource?.iconUrl,
+    },
+    type: r?.type === 'mcp' ? 'mcp' : 'http',
+    network: r?.network ?? 'stellar:testnet',
+    scheme: r?.scheme ?? 'exact',
+    payTo: r?.payTo ?? '',
+    asset: r?.asset ?? '',
+    maxAmountRequired: String(r?.maxAmountRequired ?? '0'),
+    lastSeenAt: Number(r?.lastSeenAt) || Date.now(),
+    settlements: Number(r?.settlements) || 0,
+  }
+}
+
+/**
+ * Fixtures go stale the moment they are written. Slide every timestamp forward so
+ * the recency signal still reads as a live catalog during the demo.
+ */
+function rebase(items: PregaoRecord[]): PregaoRecord[] {
+  const newest = items.reduce((a, r) => Math.max(a, r.lastSeenAt || 0), 0)
+  const delta = Date.now() - newest
+  if (!newest || delta < 60_000) return items
+  return items.map((r) => ({ ...r, lastSeenAt: r.lastSeenAt + delta }))
+}
+
+const fixtureItems = () => rebase(pickItems(fixtureRaw).map(sane))
+const fixtureIntegrity = () => {
+  const raw = pickIntegrity(fixtureRaw)
+  const newest = raw.reduce((a, e) => Math.max(a, e.at || 0), 0)
+  const delta = newest ? Date.now() - newest : 0
+  return delta > 60_000 ? raw.map((e) => ({ ...e, at: e.at + delta })) : raw
+}
+
+export function demoCatalog(): Catalog {
+  const items = fixtureItems()
+  return {
+    items,
+    integrity: fixtureIntegrity(),
+    source: 'demo',
+    asset: (fixtureRaw as { asset?: string }).asset ?? items[0]?.asset ?? '',
+    total: items.length,
+  }
+}
+
+export async function loadCatalog(): Promise<Catalog> {
+  try {
+    const payload = await getJSON('/discovery/resources?limit=50&extensions=bazaar')
+    const items = pickItems(payload).map(sane)
+    if (!items.length) throw new Error('empty index')
+    let integrity = pickIntegrity(payload)
+    if (!integrity.length) {
+      try {
+        integrity = pickIntegrity(await getJSON('/discovery/integrity?limit=20'))
+      } catch {
+        /* the index need not expose this yet — fall back to the baked ledger */
+      }
+    }
+    if (!integrity.length) integrity = fixtureIntegrity()
+    return {
+      items,
+      integrity,
+      source: 'live',
+      asset: items[0]?.asset ?? '',
+      total: Number((payload as { total?: number })?.total) || items.length,
+    }
+  } catch {
+    return demoCatalog()
+  }
+}
+
+export type SearchOutcome = {
+  items: PregaoRecord[]
+  source: 'live' | 'demo'
+  partialResults: boolean
+  tookMs: number
+}
+
+/**
+ * Ranking always runs locally as well, so the _explain breakdown is present even
+ * when the index answers without one.
+ */
+export async function search(
+  query: string,
+  fallback: PregaoRecord[],
+  live: boolean,
+): Promise<SearchOutcome> {
+  const started = performance.now()
+  if (live && query.trim()) {
+    try {
+      const payload = await getJSON(`/discovery/search?query=${encodeURIComponent(query)}&limit=20`)
+      const items = pickItems(payload).map(sane)
+      if (items.length) {
+        const explained = items.map((r, i) => (r._explain ? r : { ...r, ...rank(query, [r])[0], _rank: i }))
+        return {
+          items: explained as PregaoRecord[],
+          source: 'live',
+          partialResults: Boolean((payload as { partialResults?: boolean })?.partialResults),
+          tookMs: performance.now() - started,
+        }
+      }
+    } catch {
+      /* fall through to the local ranker */
+    }
+  }
+  const items = rank(query, fallback)
+  return {
+    items: query.trim() ? items : rank('', fallback).sort((a, b) => b.settlements - a.settlements),
+    source: live ? 'live' : 'demo',
+    partialResults: false,
+    tookMs: performance.now() - started,
+  }
+}
+
+export const testnetTxs: TxEntry[] = Array.isArray(txsRaw) ? (txsRaw as TxEntry[]) : []

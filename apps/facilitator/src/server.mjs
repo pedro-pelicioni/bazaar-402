@@ -212,11 +212,26 @@ function readDiscovery(paymentPayload, paymentRequirements) {
   return raw ?? null;
 }
 
-/** Map an x402 settle into the canonical catalog record from CONTRACT.md. */
-function toCatalogRecord(paymentRequirements, discovery) {
+/**
+ * Map an x402 settle into the canonical catalog record from CONTRACT.md.
+ *
+ * NOTE on shapes: in x402 **v2** the resource metadata lives on
+ * `PaymentPayload.resource` (a ResourceInfo), NOT on PaymentRequirements, and the
+ * price field is `amount` — v1 called it `maxAmountRequired` and inlined the
+ * resource. We read both so either version settles cleanly.
+ */
+function toCatalogRecord(paymentPayload, paymentRequirements, discovery) {
   const info = discovery?.info ?? discovery ?? {};
   const input = info.input ?? {};
-  const url = paymentRequirements?.resource ?? paymentRequirements?.url ?? "";
+
+  // v2: payload.resource (ResourceInfo). v1: requirements.resource (a bare url string).
+  const resourceInfo =
+    paymentPayload?.resource ??
+    (typeof paymentRequirements?.resource === "string"
+      ? { url: paymentRequirements.resource, description: paymentRequirements.description }
+      : (paymentRequirements?.resource ?? {}));
+
+  const url = resourceInfo.url ?? "";
   const meta = paymentRequirements?.extra ?? {};
   const id = input.toolName ? `${url}#${input.toolName}` : url;
 
@@ -224,17 +239,19 @@ function toCatalogRecord(paymentRequirements, discovery) {
     id,
     resource: {
       url,
-      serviceName: meta.serviceName ?? discovery?.serviceName ?? "sextant-seller",
-      tags: discovery?.tags ?? meta.tags ?? [],
-      iconUrl: discovery?.iconUrl ?? meta.iconUrl,
-      description: paymentRequirements?.description ?? discovery?.description ?? "",
+      serviceName: resourceInfo.serviceName ?? meta.serviceName ?? "sextant-seller",
+      tags: resourceInfo.tags ?? discovery?.tags ?? meta.tags ?? [],
+      iconUrl: resourceInfo.iconUrl ?? discovery?.iconUrl ?? meta.iconUrl,
+      description: resourceInfo.description ?? paymentRequirements?.description ?? "",
     },
     type: input.type === "mcp" ? "mcp" : "http",
     network: paymentRequirements?.network ?? NETWORK,
     scheme: paymentRequirements?.scheme ?? "exact",
     payTo: paymentRequirements?.payTo ?? SELLER_PUBLIC,
     asset: paymentRequirements?.asset ?? ASSET_SAC,
-    maxAmountRequired: String(paymentRequirements?.maxAmountRequired ?? "0"),
+    maxAmountRequired: String(
+      paymentRequirements?.amount ?? paymentRequirements?.maxAmountRequired ?? "0",
+    ),
     input,
     output: info.output ?? { type: "json" },
     routeTemplate: discovery?.routeTemplate ?? info.routeTemplate,
@@ -367,7 +384,7 @@ app.post("/settle", async (req, res) => {
       const discovery = readDiscovery(paymentPayload, paymentRequirements);
       if (discovery) {
         try {
-          const record = toCatalogRecord(paymentRequirements, discovery);
+          const record = toCatalogRecord(paymentPayload, paymentRequirements, discovery);
           const prior = catalog
             .list({ limit: 1000 })
             .items.find((i) => i.id === record.id);

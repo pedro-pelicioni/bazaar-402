@@ -20,19 +20,23 @@ export function shortHash(h: string): string {
   return h.length > 18 ? `${h.slice(0, 10)}…${h.slice(-8)}` : h
 }
 
-export function ago(ts: number, lang: 'pt' | 'en'): string {
+export function ago(ts: number): string {
   const s = Math.max(0, Math.round((Date.now() - ts) / 1000))
-  const pt = lang === 'pt'
-  if (s < 60) return pt ? `há ${s}s` : `${s}s ago`
+  if (s < 60) return `${s}s ago`
   const m = Math.round(s / 60)
-  if (m < 60) return pt ? `há ${m} min` : `${m} min ago`
+  if (m < 60) return `${m} min ago`
   const h = Math.round(m / 60)
-  if (h < 24) return pt ? `há ${h} h` : `${h} h ago`
-  const d = Math.round(h / 24)
-  return pt ? `há ${d} d` : `${d} d ago`
+  if (h < 24) return `${h} h ago`
+  return `${Math.round(h / 24)} d ago`
 }
 
-export const lotNumber = (i: number) => String(i + 1).padStart(2, '0')
+export const sightNumber = (i: number) => String(i + 1).padStart(2, '0')
+
+/** score 0..1 rendered as a sextant bearing, e.g. 0.62 -> "055.8°" */
+export function bearing(score: number): string {
+  const deg = Math.max(0, Math.min(1, score)) * 90
+  return `${deg.toFixed(1).padStart(4, '0')}°`
+}
 
 export const explorerTx = (hash: string) =>
   `https://stellar.expert/explorer/testnet/tx/${hash}`

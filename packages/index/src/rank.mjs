@@ -1,5 +1,6 @@
 /**
- * packages/index/src/rank.mjs — hybrid lexical ranking for the PREGÃO bazaar index.
+ * packages/index/src/rank.mjs — hybrid lexical ranking for the SEXTANT bazaar index.
+ * SEXTANT: find what to pay for on Stellar.
  *
  * This is a real retrieval implementation, not a substring filter:
  *
@@ -8,9 +9,11 @@
  *      standard "BM25F-lite" trick: it raises tf for high-value fields AND raises the
  *      document length, so a long description cannot cheaply out-rank a precise
  *      serviceName match.
- *   2. A bilingual (pt-BR + en) analyzer: casefold -> NFD accent stripping -> camelCase
- *      split -> non-alphanumeric split -> stopword removal for BOTH languages -> light
- *      two-pass suffix stripping.
+ *   2. A bilingual (Portuguese + English) analyzer. This is a PRODUCT capability, not a
+ *      UI language choice: the catalog indexes Brazilian and LatAm services whose tags
+ *      and prose carry Portuguese terms, and agents query in either language.
+ *      Casefold -> NFD accent stripping -> camelCase split -> non-alphanumeric split ->
+ *      stopword removal for BOTH languages -> light two-pass suffix stripping.
  *   3. A quality prior blended on top of relevance: metadata completeness, log1p usage,
  *      and exponential recency decay.
  *

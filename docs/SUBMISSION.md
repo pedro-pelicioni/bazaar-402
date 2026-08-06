@@ -24,7 +24,7 @@ SEXTANT builds that missing piece — and the whole loop around it, vertically i
 running end to end on `stellar:testnet`:
 
 - **A facilitator-side Bazaar index** with spec-exact `/discovery/resources` and
-  `/discovery/search`, real BM25 hybrid ranking with bilingual tokenization, and a per-result
+  `/discovery/search`, real BM25 hybrid ranking with accent-folding tokenization, and a per-result
   `_explain` breakdown so you can see *why* a result ranked where it did.
 - **A self-hosted x402 facilitator** built on Apache-2.0 `@x402/stellar`, sponsoring network
   fees so the paying agent needs zero XLM.

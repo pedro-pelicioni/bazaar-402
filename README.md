@@ -93,8 +93,8 @@ existing catalogs most often leave unimplemented. We agree — so the ranking he
 
 - **BM25** (k1=1.2, b=0.75) over a field-weighted document: service name, description, tags,
   parameter names and their per-parameter descriptions, output format, URL path segments.
-- **Bilingual tokenization** — accent folding plus Portuguese and English stopword sets, so a
-  catalog of LatAm services is retrievable in either language.
+- **Accent-folding tokenization** — Unicode normalization strips diacritics before indexing,
+  so a query matches regardless of how it is typed.
 - **A quality signal** — metadata completeness, `log1p(settlements)`, and recency decay.
 - **Per-result `_explain`** — the console shows *why* each result ranked where it did.
 

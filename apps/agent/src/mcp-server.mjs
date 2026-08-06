@@ -1,0 +1,309 @@
+#!/usr/bin/env node
+/**
+ * SEXTANT — MCP server (stdio).
+ *
+ * Puts the Stellar Bazaar inside an AI agent's runtime: the agent can search for
+ * a paid resource, read its full call contract, and actually pay for it over
+ * x402 without ever leaving the tool loop. RFP requirement 3.3.
+ *
+ * SDK: @modelcontextprotocol/sdk@1.30.0
+ *   McpServer               from "@modelcontextprotocol/sdk/server/mcp.js"
+ *   StdioServerTransport    from "@modelcontextprotocol/sdk/server/stdio.js"
+ *   server.registerTool(name, { title, description, inputSchema, outputSchema, annotations }, cb)
+ *   inputSchema/outputSchema are zod raw shapes (zod v3).
+ *
+ * Contract with the caller:
+ *   - Every tool resolves. Nothing throws out of a handler.
+ *   - Success  -> { ok:true,  ... }
+ *   - Failure  -> { ok:false, code:<SEXTANT_*>, reason:<non-null human sentence> }
+ *   - Result carries both `structuredContent` (machine) and a JSON text block (model).
+ *
+ * stdout is the MCP transport — every diagnostic goes to stderr, never stdout.
+ */
+
+import { pathToFileURL } from 'node:url';
+
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { z } from 'zod';
+
+import { ERROR_CODES, fail, loadConfig, payAndFetch } from './pay.mjs';
+import { browse, describe, search } from './bazaar.mjs';
+
+const VERSION = '0.1.0';
+
+/* ------------------------------------------------------------------ *
+ * Result envelope
+ * ------------------------------------------------------------------ */
+function toResult(payload) {
+  const ok = payload?.ok === true;
+  return {
+    content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
+    structuredContent: payload,
+    ...(ok ? {} : { isError: true })
+  };
+}
+
+/** Last-resort wrapper: an unexpected throw still becomes a coded rejection. */
+function guarded(toolName, handler) {
+  return async (args, extra) => {
+    try {
+      const out = await handler(args ?? {}, extra);
+      if (!out || typeof out !== 'object' || typeof out.ok !== 'boolean') {
+        return toResult(
+          fail('SEXTANT_UPSTREAM_ERROR', `${toolName} produced a malformed internal result; nothing was paid.`)
+        );
+      }
+      // Invariant: a rejection always carries a non-null reason.
+      if (out.ok === false && !out.reason) out.reason = `${toolName} failed without a stated reason.`;
+      return toResult(out);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err ?? 'unknown error');
+      return toResult(fail('SEXTANT_UPSTREAM_ERROR', `${toolName} threw an unexpected error: ${msg}`));
+    }
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Shared schema fragments
+ * ------------------------------------------------------------------ */
+const errorShape = {
+  ok: z.boolean().describe('true on success, false on any rejection'),
+  code: z.string().nullish().describe(`machine-readable error code; one of ${Object.keys(ERROR_CODES).join(', ')}`),
+  reason: z.string().nullish().describe('human-readable explanation; never null when ok is false')
+};
+
+const resourceSummary = z
+  .object({
+    id: z.string().nullish(),
+    url: z.string().nullish(),
+    serviceName: z.string().nullish(),
+    description: z.string().nullish(),
+    tags: z.array(z.string()).nullish(),
+    type: z.string().nullish(),
+    network: z.string().nullish(),
+    scheme: z.string().nullish(),
+    payTo: z.string().nullish(),
+    asset: z.string().nullish(),
+    maxAmountRequired: z.string().nullish(),
+    settlements: z.number().nullish(),
+    score: z.number().nullish(),
+    _explain: z.unknown().nullish()
+  })
+  .passthrough();
+
+/* ------------------------------------------------------------------ *
+ * Server
+ * ------------------------------------------------------------------ */
+export function createServer() {
+  const server = new McpServer(
+    { name: 'sextant', version: VERSION, title: 'SEXTANT — find what to pay for on Stellar' },
+    {
+      instructions:
+        'SEXTANT exposes the Stellar Bazaar: a discovery index of x402-priced HTTP and MCP resources on ' +
+        'stellar:testnet. Workflow: sextant_search (natural language, any language) -> sextant_describe ' +
+        '(exact call contract for one id) -> sextant_pay (runs the 402 challenge, signs the Soroban auth ' +
+        'entry with the operator PAYER key, retries, returns the unlocked payload plus the settled tx hash). ' +
+        'Use sextant_browse to enumerate the catalogue. Every rejection returns ok:false with a SEXTANT_* ' +
+        'code and a non-null reason — read the reason before retrying.'
+    }
+  );
+
+  /* -- sextant_search --------------------------------------------- */
+  server.registerTool(
+    'sextant_search',
+    {
+      title: 'Search the Stellar Bazaar',
+      description:
+        'Rank paid resources in the Stellar Bazaar against a natural-language query (English or Portuguese; ' +
+        'the index does hybrid BM25 + field-boost retrieval). Returns each candidate with its _explain ' +
+        'ranking breakdown so the choice is auditable. Prices are atomic units of the record asset.',
+      inputSchema: {
+        query: z.string().min(1).describe('Natural-language description of the data or capability you need.'),
+        limit: z.number().int().min(1).max(50).optional().describe('Maximum candidates to return. Default 5.'),
+        network: z.string().optional().describe('CAIP-2 filter, e.g. "stellar:testnet".'),
+        maxPrice: z
+          .string()
+          .optional()
+          .describe('Budget ceiling in atomic units; candidates priced above it are dropped.')
+      },
+      outputSchema: {
+        ...errorShape,
+        query: z.string().nullish(),
+        items: z.array(resourceSummary).nullish(),
+        partialResults: z.boolean().nullish(),
+        pagination: z.object({ limit: z.number().nullish(), cursor: z.string().nullish() }).passthrough().nullish(),
+        source: z.string().nullish()
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true }
+    },
+    guarded('sextant_search', (a) =>
+      search({ query: a.query, limit: a.limit ?? 5, network: a.network, maxPrice: a.maxPrice })
+    )
+  );
+
+  /* -- sextant_browse --------------------------------------------- */
+  server.registerTool(
+    'sextant_browse',
+    {
+      title: 'Browse the Stellar Bazaar catalogue',
+      description:
+        'List registered bazaar resources without a query, filtered by type / payTo / network. Use this to ' +
+        'see what exists before searching, or to enumerate every endpoint of one seller.',
+      inputSchema: {
+        type: z.enum(['http', 'mcp']).optional().describe('Resource kind.'),
+        payTo: z.string().optional().describe('Seller Stellar account (G...).'),
+        network: z.string().optional().describe('CAIP-2 network id.'),
+        limit: z.number().int().min(1).max(100).optional().describe('Page size. Default 20.'),
+        offset: z.number().int().min(0).optional().describe('Page offset. Default 0.')
+      },
+      outputSchema: {
+        ...errorShape,
+        items: z.array(resourceSummary).nullish(),
+        total: z.number().nullish(),
+        limit: z.number().nullish(),
+        offset: z.number().nullish(),
+        source: z.string().nullish()
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true }
+    },
+    guarded('sextant_browse', (a) =>
+      browse({ type: a.type, payTo: a.payTo, network: a.network, limit: a.limit ?? 20, offset: a.offset ?? 0 })
+    )
+  );
+
+  /* -- sextant_describe ------------------------------------------- */
+  server.registerTool(
+    'sextant_describe',
+    {
+      title: 'Describe one bazaar resource',
+      description:
+        'Full discovery metadata for a single resource id, including every input parameter with its type and ' +
+        'description, the output shape, the route template and the price. Enough to construct a valid call ' +
+        'with no external documentation. Call this before sextant_pay when unsure of the parameters.',
+      inputSchema: {
+        id: z
+          .string()
+          .min(1)
+          .describe('Resource id from sextant_search / sextant_browse (the resource URL, or url#toolName for MCP).')
+      },
+      outputSchema: {
+        ...errorShape,
+        id: z.string().nullish(),
+        resource: z.object({}).passthrough().nullish(),
+        type: z.string().nullish(),
+        network: z.string().nullish(),
+        scheme: z.string().nullish(),
+        payTo: z.string().nullish(),
+        asset: z.string().nullish(),
+        maxAmountRequired: z.string().nullish(),
+        routeTemplate: z.string().nullish(),
+        input: z.unknown().nullish(),
+        output: z.unknown().nullish(),
+        parameters: z
+          .array(
+            z
+              .object({
+                name: z.string(),
+                in: z.string().nullish(),
+                type: z.string().nullish(),
+                required: z.boolean().nullish(),
+                description: z.string().nullish(),
+                enum: z.array(z.unknown()).nullish(),
+                example: z.unknown().nullish()
+              })
+              .passthrough()
+          )
+          .nullish(),
+        howToCall: z.object({}).passthrough().nullish(),
+        source: z.string().nullish()
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true }
+    },
+    guarded('sextant_describe', (a) => describe({ id: a.id }))
+  );
+
+  /* -- sextant_pay ------------------------------------------------ */
+  server.registerTool(
+    'sextant_pay',
+    {
+      title: 'Pay for and fetch a resource (x402 on Stellar)',
+      description:
+        'Run the complete x402 loop against a paid URL: request, receive the 402 challenge, sign the Soroban ' +
+        'auth entry with the operator PAYER key, retry with the payment header, and return the unlocked body ' +
+        'plus the settled transaction hash and its stellar.expert link. Spends real testnet funds. Set ' +
+        'maxPrice to cap what may be spent — the call is refused with SEXTANT_PRICE_EXCEEDS_BUDGET if the ' +
+        'resource asks for more. If the resource turns out to be free, the body is returned with paid:false.',
+      inputSchema: {
+        url: z.string().min(1).describe('Absolute URL of the paid resource (from sextant_search / describe).'),
+        params: z
+          .record(z.unknown())
+          .optional()
+          .describe('Call parameters: query string for GET, JSON body for POST/PUT/PATCH.'),
+        method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).optional().describe('HTTP method. Default GET.'),
+        maxPrice: z.string().optional().describe('Spend ceiling in atomic units of the quoted asset.'),
+        timeoutMs: z.number().int().min(1000).max(120000).optional().describe('Per-request timeout. Default 30000.')
+      },
+      outputSchema: {
+        ...errorShape,
+        paid: z.boolean().nullish(),
+        status: z.number().nullish(),
+        body: z.unknown().nullish(),
+        txHash: z.string().nullish(),
+        explorerUrl: z.string().nullish(),
+        payer: z.string().nullish(),
+        network: z.string().nullish(),
+        amount: z.string().nullish(),
+        asset: z.string().nullish(),
+        payTo: z.string().nullish(),
+        timings: z
+          .object({
+            challengeMs: z.number().nullish(),
+            signMs: z.number().nullish(),
+            settleMs: z.number().nullish(),
+            totalMs: z.number().nullish()
+          })
+          .passthrough()
+          .nullish()
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+    },
+    guarded('sextant_pay', async (a) => {
+      const res = await payAndFetch(a.url, {
+        params: a.params,
+        method: a.method ?? 'GET',
+        maxPrice: a.maxPrice,
+        timeoutMs: a.timeoutMs ?? 30000
+      });
+      // Trim internals that would only bloat the model's context.
+      const { paymentPayload, paymentHeader, ...clean } = res;
+      return clean;
+    })
+  );
+
+  return server;
+}
+
+/* ------------------------------------------------------------------ *
+ * stdio entrypoint
+ * ------------------------------------------------------------------ */
+async function main() {
+  const cfg = loadConfig();
+  // Diagnostics on stderr only — stdout belongs to the JSON-RPC transport.
+  process.stderr.write(
+    `[sextant] mcp server v${VERSION} | network=${cfg.network} | index=${cfg.indexUrl} | ` +
+      `payer=${cfg.payerPublic || (cfg.payerSecret ? 'set' : 'MISSING — sextant_pay will return SEXTANT_CONFIG_MISSING')}\n`
+  );
+
+  const server = createServer();
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  process.stderr.write('[sextant] ready on stdio\n');
+}
+
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main().catch((err) => {
+    process.stderr.write(`[sextant] fatal: ${err instanceof Error ? err.stack : String(err)}\n`);
+    process.exit(1);
+  });
+}

@@ -125,12 +125,20 @@ export function rank(query: string, docs: PregaoRecord[]): PregaoRecord[] {
         key: 'bm25',
         value: bm25n * WEIGHTS.bm25,
         detail: q.length
-          ? `BM25 bruto ${raw.toFixed(2)} · k1=${K1} b=${B} · campos ×${FIELD_BOOST.serviceName}/${FIELD_BOOST.tags}/${FIELD_BOOST.description}`
-          : 'sem consulta — texto não pontua',
+          ? `raw BM25 ${raw.toFixed(2)} · k1=${K1} b=${B} · field boost ×${FIELD_BOOST.serviceName}/${FIELD_BOOST.tags}/${FIELD_BOOST.description}`
+          : 'no query — text contributes nothing',
       },
-      { key: 'metadata', value: meta.score * WEIGHTS.metadata, detail: meta.missing.length ? `faltando: ${meta.missing.join(', ')}` : 'anúncio completo (7/7)' },
-      { key: 'settlements', value: settle * WEIGHTS.settlements, detail: `${(doc.settlements ?? 0).toLocaleString('pt-BR')} liquidações observadas (log)` },
-      { key: 'recency', value: rec * WEIGHTS.recency, detail: `meia-vida 72 h desde lastSeenAt` },
+      {
+        key: 'metadata',
+        value: meta.score * WEIGHTS.metadata,
+        detail: meta.missing.length ? `missing: ${meta.missing.join(', ')}` : 'advertisement complete (7/7)',
+      },
+      {
+        key: 'settlements',
+        value: settle * WEIGHTS.settlements,
+        detail: `${(doc.settlements ?? 0).toLocaleString('en-US')} settlements observed (log-scaled)`,
+      },
+      { key: 'recency', value: rec * WEIGHTS.recency, detail: '72 h half-life since lastSeenAt' },
     ]
 
     const total = parts.reduce((a, p) => a + p.value, 0)
