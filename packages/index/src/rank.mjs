@@ -9,11 +9,10 @@
  *      standard "BM25F-lite" trick: it raises tf for high-value fields AND raises the
  *      document length, so a long description cannot cheaply out-rank a precise
  *      serviceName match.
- *   2. A bilingual (Portuguese + English) analyzer. This is a PRODUCT capability, not a
- *      UI language choice: the catalog indexes Brazilian and LatAm services whose tags
- *      and prose carry Portuguese terms, and agents query in either language.
- *      Casefold -> NFD accent stripping -> camelCase split -> non-alphanumeric split ->
- *      stopword removal for BOTH languages -> light two-pass suffix stripping.
+ *   2. A text analyzer: casefold -> Unicode accent folding -> camelCase split ->
+ *      non-alphanumeric split -> stopword removal -> light two-pass suffix stripping.
+ *      Accent folding is correct text normalization for any script and makes retrieval
+ *      robust: a query matches regardless of diacritics.
  *   3. A quality prior blended on top of relevance: metadata completeness, log1p usage,
  *      and exponential recency decay.
  *
@@ -72,12 +71,8 @@ export const FIELD_WEIGHTS = {
 
 /* ────────────────────────────── analyzer ────────────────────────────── */
 
-/**
- * Stopwords, stored in ALREADY-NORMALISED form (lowercase, accent-stripped) because
- * the filter runs after normalisation: "não" -> "nao", "é" -> "e", "está" -> "esta".
- */
+/** English stopwords, stored lowercase and accent-folded to match analyzer output. */
 export const STOPWORDS = new Set([
-  // English
   'a', 'an', 'the', 'and', 'or', 'but', 'if', 'of', 'on', 'in', 'to', 'for', 'with',
   'at', 'by', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'do',
   'does', 'did', 'have', 'has', 'had', 'i', 'you', 'he', 'she', 'it', 'we', 'they',
@@ -86,49 +81,42 @@ export const STOPWORDS = new Set([
   'why', 'all', 'any', 'some', 'can', 'could', 'will', 'would', 'should', 'may',
   'might', 'must', 'get', 'me', 'us', 'them', 'about', 'into', 'over', 'under',
   'out', 'up', 'down', 'again', 'more', 'most', 'other', 'such', 'only', 'own',
-  'same', 'too', 'very', 'just', 'want', 'need', 'give', 'let',
-  // Portuguese (accent-stripped)
-  'o', 'os', 'as', 'um', 'uma', 'uns', 'umas', 'de', 'do', 'da', 'dos', 'das', 'em',
-  'no', 'na', 'nos', 'nas', 'num', 'numa', 'por', 'pelo', 'pela', 'pelos', 'pelas',
-  'para', 'pra', 'com', 'sem', 'sob', 'sobre', 'entre', 'ate', 'e', 'ou', 'mas',
-  'se', 'que', 'qual', 'quais', 'quem', 'quando', 'onde', 'como', 'porque', 'sao',
-  'era', 'foi', 'ser', 'estar', 'esta', 'estao', 'tem', 'ter', 'ha', 'muito', 'mais',
-  'menos', 'ja', 'nao', 'sim', 'seu', 'sua', 'seus', 'suas', 'meu', 'minha', 'este',
-  'esse', 'essa', 'aquele', 'aquela', 'isso', 'isto', 'aquilo', 'ao', 'aos', 'dele',
-  'dela', 'lhe', 'te', 'nos', 'voce', 'voces', 'eles', 'elas', 'todo', 'toda',
-  'todos', 'todas', 'outro', 'outra', 'cada', 'tambem', 'so', 'ainda', 'depois',
-  'antes', 'durante', 'quero', 'preciso', 'qualquer',
+  'same', 'too', 'very', 'just', 'want', 'need', 'give', 'let', 'via', 'per',
 ]);
 
-/** Lowercase + split camelCase + NFD accent strip. Exported for tests / debugging. */
-export function normalizeText(text) {
+/**
+ * Normalize accented characters so queries match regardless of diacritics.
+ * Decompose to NFD and drop the combining marks: "café" -> "cafe", "Zürich" -> "zurich".
+ * This is correct text normalization for any script, not a per-language feature — it
+ * removes a whole class of near-miss failures where the indexed text and the query
+ * spell the same word with different diacritics.
+ */
+export function foldAccents(text) {
   return String(text ?? '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2') // camelCase -> camel Case
     .normalize('NFD')
-    .replace(/\p{M}+/gu, '') // drop combining marks: ç -> c, ã -> a, é -> e
-    .toLowerCase();
+    .replace(/\p{M}+/gu, '');
+}
+
+/** Casefold + camelCase split + accent folding. Exported for tests and debugging. */
+export function normalizeText(text) {
+  return foldAccents(String(text ?? '').replace(/([a-z0-9])([A-Z])/g, '$1 $2')).toLowerCase();
 }
 
 /**
- * Light two-pass suffix stripping for pt-BR + en. Not a full Porter/RSLP stemmer —
- * deliberately conservative, tuned so that the pairs that actually matter in this
- * catalog collapse:
- *   cotacao/cotacoes, fiscal/fiscais, preco/precos, price/prices/pricing,
- *   translate/translation, transaction/transactions, query/queries.
+ * Light two-pass suffix stripping. Not a full Porter stemmer — deliberately
+ * conservative, tuned so that the variants that actually matter in an API catalog
+ * collapse onto one term:
+ *   price/prices/pricing -> pric, query/queries -> query,
+ *   translate/translation -> translat, transaction/transactions -> transact.
  */
 export function stem(token) {
   let t = token;
   if (t.length <= 3) return t;
 
-  // Stage A — plural / nominal endings, applied twice ("addresses" -> "address" -> "addres")
+  // Stage A — plural endings, applied twice ("addresses" -> "address" -> "addres")
   for (let pass = 0; pass < 2; pass++) {
     const n = t.length;
-    if (n > 5 && t.endsWith('coes')) t = t.slice(0, -4) + 'cao';
-    else if (n > 5 && t.endsWith('oes')) t = t.slice(0, -3) + 'ao';
-    else if (n > 5 && t.endsWith('aes')) t = t.slice(0, -3) + 'ao';
-    else if (n > 5 && t.endsWith('eis')) t = t.slice(0, -3) + 'el';
-    else if (n > 5 && t.endsWith('ais')) t = t.slice(0, -3) + 'al';
-    else if (n > 5 && t.endsWith('ies')) t = t.slice(0, -3) + 'y';
+    if (n > 5 && t.endsWith('ies')) t = t.slice(0, -3) + 'y';
     else if (n > 4 && t.endsWith('es')) t = t.slice(0, -2);
     else if (n > 4 && t.endsWith('s')) t = t.slice(0, -1);
     else break;
@@ -136,8 +124,7 @@ export function stem(token) {
 
   // Stage B — derivational endings
   const n = t.length;
-  if (n > 6 && t.endsWith('mente')) t = t.slice(0, -5);
-  else if (n > 5 && t.endsWith('ing')) t = t.slice(0, -3);
+  if (n > 5 && t.endsWith('ing')) t = t.slice(0, -3);
   else if (n > 5 && t.endsWith('ion')) t = t.slice(0, -3);
   else if (n > 5 && t.endsWith('ed')) t = t.slice(0, -2);
   else if (n > 5 && t.endsWith('ly')) t = t.slice(0, -2);

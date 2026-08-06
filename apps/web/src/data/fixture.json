@@ -1,10 +1,134 @@
 {
-  "generatedAt": 1786042123151,
+  "generatedAt": 1786042929884,
   "network": "stellar:testnet",
   "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
   "assetCode": "SXT",
   "facilitator": "http://localhost:4021",
   "items": [
+    {
+      "id": "https://fx.sextant.dev/v1/rate",
+      "resource": {
+        "url": "https://fx.sextant.dev/v1/rate",
+        "serviceName": "FX Rate Oracle BRL/USD",
+        "tags": [
+          "fx",
+          "exchange-rate",
+          "ptax",
+          "brl",
+          "oracle",
+          "quote"
+        ],
+        "iconUrl": "https://fx.sextant.dev/icon.png",
+        "description": "Reference PTAX rate and live market spread for BRL/USD with a signed timestamp, for agents that must convert a price before they pay."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "G7MB4ZK73SNQFF6JNJ56WTNQ3LGOCONEFLJHDG2AH5N2OYYI52YRUQ4Y",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "3000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "pair": "string",
+          "date": "date"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"pair\":\"BRL/USD\",\"bid\":5.1382,\"ask\":5.1394,\"ts\":1770000000}"
+      },
+      "routeTemplate": "/v1/rate",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786042103151,
+      "settlements": 1520
+    },
+    {
+      "id": "https://registry.sextant.dev/v1/company/{taxId}",
+      "resource": {
+        "url": "https://registry.sextant.dev/v1/company/{taxId}",
+        "serviceName": "Company Registry Enrichment",
+        "tags": [
+          "company",
+          "registry",
+          "cnpj",
+          "kyb",
+          "enrichment",
+          "brazil"
+        ],
+        "iconUrl": "https://registry.sextant.dev/icon.png",
+        "description": "Resolves a Brazilian CNPJ tax id into registration status, primary and secondary activity codes, ownership structure and registered address. 24 h cache over the federal public registry."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GOYU3KEOC4KWQCCRO6A65TTQOQHHCK7UHWJW4ICRYUHY6FBHFOHYIBGK",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "8000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "taxId": "string(14)",
+          "owners": "boolean"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"legalName\":\"...\",\"status\":\"ACTIVE\",\"activity\":\"6201-5/01\"}"
+      },
+      "routeTemplate": "/v1/company/{taxId}",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786042083151,
+      "settlements": 1877
+    },
+    {
+      "id": "https://geo.sextant.dev/v1/postcode/{code}",
+      "resource": {
+        "url": "https://geo.sextant.dev/v1/postcode/{code}",
+        "serviceName": "Postal Code Geocoder",
+        "tags": [
+          "geocoding",
+          "postcode",
+          "cep",
+          "address",
+          "logistics"
+        ],
+        "iconUrl": "https://geo.sextant.dev/icon.png",
+        "description": "Brazilian CEP postal code to street, district, municipality, state and coordinates. National coverage, sub-40 ms response."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "G57P4FBKKMCYP33Z4AK6ZJ4OONAUWMVY3DNS3JC562VDLK556VKHKDTX",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "2000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "code": "string(8)"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"state\":\"SP\",\"city\":\"Sao Paulo\",\"lat\":-23.5613,\"lon\":-46.6565}"
+      },
+      "routeTemplate": "/v1/postcode/{code}",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786042033151,
+      "settlements": 3104
+    },
     {
       "id": "https://nfe.sextant.dev/v1/parse",
       "resource": {
@@ -48,46 +172,44 @@
       "settlements": 412
     },
     {
-      "id": "https://registry.sextant.dev/v1/company/{taxId}",
+      "id": "https://slip.sextant.dev/v1/bank-slip",
       "resource": {
-        "url": "https://registry.sextant.dev/v1/company/{taxId}",
-        "serviceName": "Company Registry Enrichment",
+        "url": "https://slip.sextant.dev/v1/bank-slip",
+        "serviceName": "Bank Slip Parser",
         "tags": [
-          "company",
-          "registry",
-          "cnpj",
-          "kyb",
-          "enrichment",
-          "brazil"
+          "boleto",
+          "bank-slip",
+          "febraban",
+          "payments",
+          "validation"
         ],
-        "iconUrl": "https://registry.sextant.dev/icon.png",
-        "description": "Resolves a Brazilian CNPJ tax id into registration status, primary and secondary activity codes, ownership structure and registered address. 24 h cache over the federal public registry."
+        "iconUrl": "https://slip.sextant.dev/icon.png",
+        "description": "Decodes a FEBRABAN boleto barcode or typeable line into issuing bank, due date, amount and check digits, with modulo 10/11 validation."
       },
       "type": "http",
       "network": "stellar:testnet",
       "scheme": "exact",
-      "payTo": "GOYU3KEOC4KWQCCRO6A65TTQOQHHCK7UHWJW4ICRYUHY6FBHFOHYIBGK",
+      "payTo": "GE3XLMVMU2VNABBLQFXWMDINXFU3O4DWD7QXJSW6CCRJLGTFISNHOODU",
       "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
-      "maxAmountRequired": "8000",
+      "maxAmountRequired": "5000",
       "input": {
         "type": "http",
-        "method": "GET",
-        "queryParams": {
-          "taxId": "string(14)",
-          "owners": "boolean"
+        "method": "POST",
+        "body": {
+          "line": "string(47|48)"
         }
       },
       "output": {
         "type": "json",
         "format": "application/json",
-        "example": "{\"legalName\":\"...\",\"status\":\"ACTIVE\",\"activity\":\"6201-5/01\"}"
+        "example": "{\"bank\":\"341\",\"dueDate\":\"2026-08-14\",\"amount\":\"1284.50\"}"
       },
-      "routeTemplate": "/v1/company/{taxId}",
+      "routeTemplate": "/v1/bank-slip",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786042083151,
-      "settlements": 1877
+      "lastSeenAt": 1786041763151,
+      "settlements": 640
     },
     {
       "id": "https://pix.sextant.dev/mcp#reconcile_statement",
@@ -142,50 +264,10 @@
       "settlements": 233
     },
     {
-      "id": "https://slip.sextant.dev/v1/bank-slip",
-      "resource": {
-        "url": "https://slip.sextant.dev/v1/bank-slip",
-        "serviceName": "Bank Slip Parser",
-        "tags": [
-          "boleto",
-          "bank-slip",
-          "febraban",
-          "payments",
-          "validation"
-        ],
-        "iconUrl": "https://slip.sextant.dev/icon.png",
-        "description": "Decodes a FEBRABAN boleto barcode or typeable line into issuing bank, due date, amount and check digits, with modulo 10/11 validation."
-      },
-      "type": "http",
-      "network": "stellar:testnet",
-      "scheme": "exact",
-      "payTo": "GE3XLMVMU2VNABBLQFXWMDINXFU3O4DWD7QXJSW6CCRJLGTFISNHOODU",
-      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
-      "maxAmountRequired": "5000",
-      "input": {
-        "type": "http",
-        "method": "POST",
-        "body": {
-          "line": "string(47|48)"
-        }
-      },
-      "output": {
-        "type": "json",
-        "format": "application/json",
-        "example": "{\"bank\":\"341\",\"dueDate\":\"2026-08-14\",\"amount\":\"1284.50\"}"
-      },
-      "routeTemplate": "/v1/bank-slip",
-      "extensions": [
-        "bazaar"
-      ],
-      "lastSeenAt": 1786041763151,
-      "settlements": 640
-    },
-    {
       "id": "https://speech.sextant.dev/v1/transcribe",
       "resource": {
         "url": "https://speech.sextant.dev/v1/transcribe",
-        "serviceName": "Portuguese Speech-to-Text",
+        "serviceName": "Brazilian Speech-to-Text",
         "tags": [
           "audio",
           "transcription",
@@ -195,7 +277,7 @@
           "ai"
         ],
         "iconUrl": "https://speech.sextant.dev/icon.png",
-        "description": "Brazilian Portuguese audio to text with speaker diarization, word-level timestamps and a call-centre vocabulary. Accepts wav, mp3 and ogg."
+        "description": "Brazilian audio to text with speaker diarization, word-level timestamps and a call-centre vocabulary. Accepts wav, mp3 and ogg."
       },
       "type": "http",
       "network": "stellar:testnet",
@@ -224,6 +306,168 @@
       "settlements": 96
     },
     {
+      "id": "https://docs.sextant.dev/v1/ocr",
+      "resource": {
+        "url": "https://docs.sextant.dev/v1/ocr",
+        "serviceName": "Identity Document OCR",
+        "tags": [
+          "ocr",
+          "identity",
+          "document",
+          "kyc",
+          "vision"
+        ],
+        "iconUrl": "https://docs.sextant.dev/icon.png",
+        "description": "Reads national id cards, driving licences and proof-of-address documents, returning normalized fields plus a per-field tamper score."
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GAG3N6THOIPZENGE2TT4R4DEVYYRQSSZLTXNLJXPIGPCODFW5O6AYRIN",
+      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
+      "maxAmountRequired": "35000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "body": {
+          "image": "multipart/form-data"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "application/json",
+        "example": "{\"kind\":\"DRIVING_LICENCE\",\"name\":\"...\",\"tamper\":0.02}"
+      },
+      "routeTemplate": "/v1/ocr",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786038823151,
+      "settlements": 289
+    },
+    {
+      "id": "https://mcp.sextant.example/mcp#search_catalog",
+      "resource": {
+        "url": "https://mcp.sextant.example/mcp",
+        "serviceName": "SEXTANT Catalog MCP",
+        "description": "Search the SEXTANT bazaar catalog for paid x402 resources on Stellar by natural-language description, returning ranked results with pricing.",
+        "tags": [
+          "mcp",
+          "discovery",
+          "search",
+          "x402",
+          "tools"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/sextant.svg"
+      },
+      "type": "mcp",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "100",
+      "input": {
+        "type": "mcp",
+        "toolName": "search_catalog",
+        "transport": "streamable-http",
+        "description": "Find paid APIs and MCP tools matching a natural-language need.",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Natural-language description of the capability you need."
+            },
+            "maxPrice": {
+              "type": "string",
+              "description": "Optional ceiling on maxAmountRequired, in stroops."
+            }
+          },
+          "required": [
+            "query"
+          ]
+        },
+        "example": {
+          "query": "convert dollars to reais"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "search-results",
+        "example": {
+          "items": [],
+          "total": 0
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786038609882,
+      "settlements": 980,
+      "firstSeenAt": 1786038609882
+    },
+    {
+      "id": "https://api.fxrates.example/v1/fx/usd-brl",
+      "resource": {
+        "url": "https://api.fxrates.example/v1/fx/usd-brl",
+        "serviceName": "USD/BRL FX Rate",
+        "description": "Real-time USD to BRL exchange rate with mid, bid and ask prices, sourced from an aggregate of Brazilian interbank venues and refreshed every 5 seconds.",
+        "tags": [
+          "fx",
+          "forex",
+          "brl",
+          "rates",
+          "market-data"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/fx.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "2500",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "amount": "100",
+          "side": "mid"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "amount": {
+              "type": "string",
+              "description": "Notional amount in USD to convert, decimal string."
+            },
+            "side": {
+              "type": "string",
+              "description": "Which side of the book to quote: mid, bid or ask."
+            }
+          },
+          "required": []
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "quote",
+        "example": {
+          "pair": "USDBRL",
+          "mid": "5.4312",
+          "asOf": "2026-08-06T12:00:00Z"
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786034289882,
+      "settlements": 4820,
+      "firstSeenAt": 1786034289882
+    },
+    {
       "id": "https://legal.sextant.dev/mcp#extract_clauses",
       "resource": {
         "url": "https://legal.sextant.dev/mcp",
@@ -237,7 +481,7 @@
           "documents"
         ],
         "iconUrl": "https://legal.sextant.dev/icon.png",
-        "description": "MCP tool that locates termination, penalty, jurisdiction and price-adjustment clauses in Portuguese and English contracts, returning the literal span and its offset in the document."
+        "description": "MCP tool that locates termination, penalty, jurisdiction and price-adjustment clauses in long-form contracts, returning the literal span and its offset in the document."
       },
       "type": "mcp",
       "network": "stellar:testnet",
@@ -275,86 +519,244 @@
       "settlements": 58
     },
     {
-      "id": "https://geo.sextant.dev/v1/postcode/{code}",
+      "id": "https://mcp.stellartools.example/mcp#submit_transaction",
       "resource": {
-        "url": "https://geo.sextant.dev/v1/postcode/{code}",
-        "serviceName": "Postal Code Geocoder",
+        "url": "https://mcp.stellartools.example/mcp",
+        "serviceName": "Stellar Tools MCP",
+        "description": "Submit a signed Stellar transaction envelope to the network and wait for its inclusion result. Exposed as an MCP tool for autonomous agents.",
         "tags": [
-          "geocoding",
-          "postcode",
-          "cep",
-          "address",
-          "logistics"
+          "mcp",
+          "stellar",
+          "transactions",
+          "tools"
         ],
-        "iconUrl": "https://geo.sextant.dev/icon.png",
-        "description": "Brazilian CEP postal code to street, district, municipality, state and coordinates. National coverage, sub-40 ms response."
+        "iconUrl": "https://cdn.sextant.build/icons/mcp.svg"
       },
-      "type": "http",
+      "type": "mcp",
       "network": "stellar:testnet",
       "scheme": "exact",
-      "payTo": "G57P4FBKKMCYP33Z4AK6ZJ4OONAUWMVY3DNS3JC562VDLK556VKHKDTX",
-      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
-      "maxAmountRequired": "2000",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "3500",
       "input": {
-        "type": "http",
-        "method": "GET",
-        "queryParams": {
-          "code": "string(8)"
+        "type": "mcp",
+        "toolName": "submit_transaction",
+        "transport": "streamable-http",
+        "description": "Submit a signed transaction envelope to the Stellar network.",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "envelopeXdr": {
+              "type": "string",
+              "description": "Base64-encoded signed transaction envelope XDR."
+            },
+            "waitForResult": {
+              "type": "boolean",
+              "description": "Block until the transaction is included in a ledger."
+            }
+          },
+          "required": [
+            "envelopeXdr"
+          ]
+        },
+        "example": {
+          "envelopeXdr": "AAAAAgAAAA...",
+          "waitForResult": true
         }
       },
       "output": {
         "type": "json",
-        "format": "application/json",
-        "example": "{\"state\":\"SP\",\"city\":\"Sao Paulo\",\"lat\":-23.5613,\"lon\":-46.6565}"
+        "format": "transaction-result",
+        "example": {
+          "hash": "abc123",
+          "successful": true
+        }
       },
-      "routeTemplate": "/v1/postcode/{code}",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786042033151,
-      "settlements": 3104
+      "lastSeenAt": 1786029969882,
+      "settlements": 4410,
+      "firstSeenAt": 1786029969882
     },
     {
-      "id": "https://fx.sextant.dev/v1/rate",
+      "id": "https://api.addresses.example/v1/postal-code/01310930",
       "resource": {
-        "url": "https://fx.sextant.dev/v1/rate",
-        "serviceName": "FX Rate Oracle BRL/USD",
+        "url": "https://api.addresses.example/v1/postal-code/01310930",
+        "serviceName": "Brazilian Postal Code Lookup",
+        "description": "Resolve a Brazilian postal code (CEP) to a full street address including street, neighbourhood, city, state and IBGE municipality code.",
         "tags": [
-          "fx",
-          "exchange-rate",
-          "ptax",
-          "brl",
-          "oracle",
-          "quote"
+          "postal-code",
+          "address",
+          "lookup",
+          "brazil",
+          "geo"
         ],
-        "iconUrl": "https://fx.sextant.dev/icon.png",
-        "description": "Reference PTAX rate and live market spread for BRL/USD with a signed timestamp, for agents that must convert a price before they pay."
+        "iconUrl": "https://cdn.sextant.build/icons/address.svg"
       },
       "type": "http",
       "network": "stellar:testnet",
       "scheme": "exact",
-      "payTo": "G7MB4ZK73SNQFF6JNJ56WTNQ3LGOCONEFLJHDG2AH5N2OYYI52YRUQ4Y",
-      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
-      "maxAmountRequired": "3000",
+      "payTo": "GDQNY3PBOJOKYZSRMK2S7LHHGWZIUISD4QORETLMXEWXBI7KFZZMKTL3",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "800",
       "input": {
         "type": "http",
         "method": "GET",
-        "queryParams": {
-          "pair": "string",
-          "date": "date"
+        "pathParams": {
+          "cep": "01310930"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "cep": {
+              "type": "string",
+              "description": "Eight-digit Brazilian postal code, digits only, no hyphen."
+            }
+          },
+          "required": [
+            "cep"
+          ]
         }
       },
       "output": {
         "type": "json",
-        "format": "application/json",
-        "example": "{\"pair\":\"BRL/USD\",\"bid\":5.1382,\"ask\":5.1394,\"ts\":1770000000}"
+        "format": "address",
+        "example": {
+          "street": "Avenida Paulista",
+          "city": "Sao Paulo",
+          "state": "SP",
+          "ibge": "3550308"
+        }
       },
-      "routeTemplate": "/v1/rate",
+      "routeTemplate": "/v1/postal-code/:cep",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786042103151,
-      "settlements": 1520
+      "lastSeenAt": 1786025649882,
+      "settlements": 7450,
+      "firstSeenAt": 1786025649882
+    },
+    {
+      "id": "https://mcp.stellartools.example/mcp#simulate_contract",
+      "resource": {
+        "url": "https://mcp.stellartools.example/mcp",
+        "serviceName": "Stellar Tools MCP",
+        "description": "Simulate a Soroban contract invocation without submitting it, returning the predicted return value, footprint and resource fee.",
+        "tags": [
+          "mcp",
+          "stellar",
+          "soroban",
+          "simulation",
+          "tools"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/mcp.svg"
+      },
+      "type": "mcp",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "1800",
+      "input": {
+        "type": "mcp",
+        "toolName": "simulate_contract",
+        "transport": "streamable-http",
+        "description": "Simulate a Soroban contract call and return the predicted result.",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "contractId": {
+              "type": "string",
+              "description": "Contract identifier starting with C."
+            },
+            "method": {
+              "type": "string",
+              "description": "Contract method name to invoke."
+            },
+            "args": {
+              "type": "array",
+              "description": "Positional arguments passed to the contract method."
+            }
+          },
+          "required": [
+            "contractId",
+            "method"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "simulation",
+        "example": {
+          "cost": {
+            "cpuInsns": "918273"
+          }
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786021329882,
+      "settlements": 2890,
+      "firstSeenAt": 1786021329882
+    },
+    {
+      "id": "https://api.fxrates.example/v1/fx/usdc-brl",
+      "resource": {
+        "url": "https://api.fxrates.example/v1/fx/usdc-brl",
+        "serviceName": "USDC/BRL Stablecoin Rate",
+        "description": "USDC to BRL conversion rate for on-chain settlement, cross-checked against a Reflector oracle feed and the offshore USD/BRL curve.",
+        "tags": [
+          "fx",
+          "stablecoin",
+          "usdc",
+          "brl",
+          "oracle"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/usdc.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "2500",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "amount": "1000"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "amount": {
+              "type": "string",
+              "description": "Notional amount in USDC to convert."
+            }
+          },
+          "required": []
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "quote",
+        "example": {
+          "pair": "USDCBRL",
+          "mid": "5.4410"
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1786017009882,
+      "settlements": 2140,
+      "firstSeenAt": 1786017009882
     },
     {
       "id": "https://sped.sextant.dev/v1/validate",
@@ -398,47 +800,942 @@
       "settlements": 71
     },
     {
-      "id": "https://docs.sextant.dev/v1/ocr",
+      "id": "https://api.payments.example/v1/pix/validate",
       "resource": {
-        "url": "https://docs.sextant.dev/v1/ocr",
-        "serviceName": "Identity Document OCR",
+        "url": "https://api.payments.example/v1/pix/validate",
+        "serviceName": "PIX Identifier Validation",
+        "description": "Validate a PIX key and resolve it to the masked account holder name and institution, so an agent can confirm a payee before initiating a transfer.",
         "tags": [
-          "ocr",
+          "pix",
+          "payments",
+          "validation",
           "identity",
-          "document",
-          "kyc",
-          "vision"
+          "brazil"
         ],
-        "iconUrl": "https://docs.sextant.dev/icon.png",
-        "description": "Reads national id cards, driving licences and proof-of-address documents, returning normalized fields plus a per-field tamper score."
+        "iconUrl": "https://cdn.sextant.build/icons/pix.svg"
       },
       "type": "http",
       "network": "stellar:testnet",
       "scheme": "exact",
-      "payTo": "GAG3N6THOIPZENGE2TT4R4DEVYYRQSSZLTXNLJXPIGPCODFW5O6AYRIN",
-      "asset": "CSQ5WYWQEBHJ7WVLID432OI2BY6ZDKUBIQYIQASRUW32H2N5E3JAPAE5",
-      "maxAmountRequired": "35000",
+      "payTo": "GDQNY3PBOJOKYZSRMK2S7LHHGWZIUISD4QORETLMXEWXBI7KFZZMKTL3",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "1500",
       "input": {
         "type": "http",
         "method": "POST",
+        "bodyType": "json",
         "body": {
-          "image": "multipart/form-data"
+          "key": "agent@example.com",
+          "keyType": "email"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "The PIX key to validate: email, phone, tax id or random key."
+            },
+            "keyType": {
+              "type": "string",
+              "description": "Declared key type, used to pick the validation rules."
+            }
+          },
+          "required": [
+            "key"
+          ]
         }
       },
       "output": {
         "type": "json",
-        "format": "application/json",
-        "example": "{\"kind\":\"DRIVING_LICENCE\",\"name\":\"...\",\"tamper\":0.02}"
+        "format": "payee",
+        "example": {
+          "holder": "M**** S****",
+          "bank": "Banco Example"
+        }
       },
-      "routeTemplate": "/v1/ocr",
       "extensions": [
         "bazaar"
       ],
-      "lastSeenAt": 1786038823151,
-      "settlements": 289
+      "lastSeenAt": 1786008369882,
+      "settlements": 5230,
+      "firstSeenAt": 1786008369882
+    },
+    {
+      "id": "https://oracle.reflector.example/v1/price/xlm",
+      "resource": {
+        "url": "https://oracle.reflector.example/v1/price/xlm",
+        "serviceName": "Reflector XLM Price Feed",
+        "description": "Signed XLM spot price from the Reflector oracle network, suitable for on-chain consumption by Soroban contracts.",
+        "tags": [
+          "oracle",
+          "price-feed",
+          "stellar",
+          "xlm"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "1200",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "quote": "USD"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "signed-price"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785999729882,
+      "settlements": 3310,
+      "firstSeenAt": 1785999729882
+    },
+    {
+      "id": "https://api.weather.example/v1/forecast",
+      "resource": {
+        "url": "https://api.weather.example/v1/forecast",
+        "serviceName": "Weather Forecast",
+        "description": "Seven-day weather forecast for any Brazilian municipality, including temperature range, precipitation probability and a severe-weather alert flag.",
+        "tags": [
+          "weather",
+          "forecast",
+          "climate",
+          "brazil"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/weather.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "700",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "city": "Sao Paulo",
+          "days": "7"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string",
+              "description": "Municipality name or IBGE code to forecast for."
+            },
+            "days": {
+              "type": "string",
+              "description": "Number of forecast days to return, 1 to 7."
+            }
+          },
+          "required": [
+            "city"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "forecast",
+        "example": {
+          "day": "2026-08-07",
+          "tempMinC": 14,
+          "tempMaxC": 23
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785991089882,
+      "settlements": 3890,
+      "firstSeenAt": 1785991089882
+    },
+    {
+      "id": "https://api.chaindata.example/v1/account/GABC/balances",
+      "resource": {
+        "url": "https://api.chaindata.example/v1/account/GABC/balances",
+        "serviceName": "Stellar Account Balances",
+        "description": "Current balances for a Stellar account across every trustline, with SAC contract identifiers resolved.",
+        "tags": [
+          "stellar",
+          "account",
+          "balance",
+          "blockchain"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "500",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "pathParams": {
+          "accountId": "GABC"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "description": "Stellar public key of the account to inspect."
+            }
+          },
+          "required": [
+            "accountId"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "balances"
+      },
+      "routeTemplate": "/v1/account/:accountId/balances",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785982449882,
+      "settlements": 3120,
+      "firstSeenAt": 1785982449882
+    },
+    {
+      "id": "https://api.documents.example/v1/invoice-ocr",
+      "resource": {
+        "url": "https://api.documents.example/v1/invoice-ocr",
+        "serviceName": "Invoice OCR",
+        "description": "Optical character recognition tuned for the Brazilian nota fiscal layout. Extracts issuer, recipient, line items, tax breakdown and the 44-digit access key from a scanned invoice.",
+        "tags": [
+          "ocr",
+          "invoice",
+          "documents",
+          "tax",
+          "extraction"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/ocr.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GDQNY3PBOJOKYZSRMK2S7LHHGWZIUISD4QORETLMXEWXBI7KFZZMKTL3",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "15000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "imageUrl": "https://files.example/invoice.pdf",
+          "language": "pt"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "imageUrl": {
+              "type": "string",
+              "description": "Publicly reachable URL of the invoice image or PDF to process."
+            },
+            "language": {
+              "type": "string",
+              "description": "Document language hint used to select the OCR model."
+            }
+          },
+          "required": [
+            "imageUrl"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "invoice",
+        "example": {
+          "accessKey": "35260812345678000190550010000000011000000017",
+          "total": "1284.90"
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785973809882,
+      "settlements": 1980,
+      "firstSeenAt": 1785973809882
+    },
+    {
+      "id": "https://api.translate.example/v1/translate",
+      "resource": {
+        "url": "https://api.translate.example/v1/translate",
+        "serviceName": "Neural Translation",
+        "description": "Neural machine translation across major languages, tuned for financial and legal register with terminology consistency across a document.",
+        "tags": [
+          "translation",
+          "nlp",
+          "language",
+          "ai"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/translate.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "5000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "text": "A liquidation was confirmed.",
+          "source": "auto",
+          "target": "en"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "The source text to translate, up to 8000 characters."
+            },
+            "source": {
+              "type": "string",
+              "description": "Source language code; omit to auto-detect."
+            },
+            "target": {
+              "type": "string",
+              "description": "Target language code to translate into."
+            }
+          },
+          "required": [
+            "text",
+            "target"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "translation",
+        "example": {
+          "text": "The settlement was confirmed."
+        }
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785965169882,
+      "settlements": 2450,
+      "firstSeenAt": 1785965169882
+    },
+    {
+      "id": "https://oracle.reflector.example/v1/price/multi",
+      "resource": {
+        "url": "https://oracle.reflector.example/v1/price/multi",
+        "serviceName": "Reflector Multi-Asset Oracle",
+        "description": "Batch price lookup across every asset tracked by the Reflector oracle, with per-asset staleness metadata.",
+        "tags": [
+          "oracle",
+          "price-feed",
+          "stellar"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/oracle.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "4000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "assets": [
+            "XLM",
+            "USDC",
+            "BTC"
+          ]
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785939249882,
+      "settlements": 890,
+      "firstSeenAt": 1785939249882
+    },
+    {
+      "id": "https://api.registry.example/v1/company/12345678000190",
+      "resource": {
+        "url": "https://api.registry.example/v1/company/12345678000190",
+        "serviceName": "Company Registry Lookup",
+        "description": "Look up a Brazilian company by its CNPJ tax identifier and return the registered name, trade name, address, activity codes and registration status.",
+        "tags": [
+          "registry",
+          "company",
+          "lookup",
+          "brazil",
+          "compliance"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/company.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "3000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "pathParams": {
+          "taxId": "12345678000190"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "taxId": {
+              "type": "string",
+              "description": "Fourteen-digit CNPJ company tax identifier, digits only."
+            }
+          },
+          "required": [
+            "taxId"
+          ]
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "company",
+        "example": {
+          "name": "Example Trading Ltd",
+          "status": "ACTIVE"
+        }
+      },
+      "routeTemplate": "/v1/company/:taxId",
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785913329882,
+      "settlements": 2670,
+      "firstSeenAt": 1785913329882
+    },
+    {
+      "id": "https://api.antifraud.example/v1/risk-score",
+      "resource": {
+        "url": "https://api.antifraud.example/v1/risk-score",
+        "serviceName": "Device Risk Score",
+        "description": "Return a 0-100 fraud risk score for a device fingerprint and transaction context, with the top contributing risk factors.",
+        "tags": [
+          "fraud",
+          "risk",
+          "security",
+          "payments"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/risk.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "2200",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "fingerprint": "a1b2c3",
+          "amount": "250.00"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "risk"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785870129882,
+      "settlements": 1340,
+      "firstSeenAt": 1785870129882
+    },
+    {
+      "id": "https://api.payments.example/v1/pix/qrcode",
+      "resource": {
+        "url": "https://api.payments.example/v1/pix/qrcode",
+        "serviceName": "PIX QR Code Generator",
+        "description": "Generate a static or dynamic PIX payment QR code payload conforming to the BR Code standard.",
+        "tags": [
+          "pix",
+          "payments",
+          "qrcode"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/qrcode.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GDQNY3PBOJOKYZSRMK2S7LHHGWZIUISD4QORETLMXEWXBI7KFZZMKTL3",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "900",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "key": "agent@example.com",
+          "amount": "49.90"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "brcode"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785826929882,
+      "settlements": 1120,
+      "firstSeenAt": 1785826929882
+    },
+    {
+      "id": "https://api.fxrates.example/v1/fx/history",
+      "resource": {
+        "url": "https://api.fxrates.example/v1/fx/history",
+        "serviceName": "FX Historical Time Series",
+        "description": "Daily closing exchange rates for major pairs going back to 2015, returned as a compact time series.",
+        "tags": [
+          "fx",
+          "timeseries",
+          "history"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "6000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "pair": "USDBRL",
+          "from": "2026-01-01",
+          "to": "2026-08-01"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "pair": {
+              "type": "string",
+              "description": "Currency pair in ISO 4217 concatenated form, e.g. USDBRL."
+            },
+            "from": {
+              "type": "string",
+              "description": "Inclusive start date, ISO 8601."
+            },
+            "to": {
+              "type": "string",
+              "description": "Inclusive end date, ISO 8601."
+            }
+          },
+          "required": []
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "timeseries"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785783729882,
+      "settlements": 610,
+      "firstSeenAt": 1785783729882
+    },
+    {
+      "id": "https://api.centralbank.example/v1/indicators",
+      "resource": {
+        "url": "https://api.centralbank.example/v1/indicators",
+        "serviceName": "Central Bank Indicators",
+        "description": "Official Brazilian macroeconomic series: the SELIC policy rate, the IPCA inflation index and the CDI overnight rate.",
+        "tags": [
+          "macro",
+          "economics",
+          "rates",
+          "brazil"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "1000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "series": "selic",
+          "window": "90d"
+        },
+        "schema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "series": {
+              "type": "string",
+              "description": "Which indicator series to return: selic, ipca or cdi."
+            },
+            "window": {
+              "type": "string",
+              "description": "Lookback window expressed in days."
+            }
+          },
+          "required": []
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "timeseries"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785697329882,
+      "settlements": 430,
+      "firstSeenAt": 1785697329882
+    },
+    {
+      "id": "https://mcp.stellartools.example/mcp#fetch_ledger_entry",
+      "resource": {
+        "url": "https://mcp.stellartools.example/mcp",
+        "serviceName": "Stellar Tools MCP",
+        "description": "Read a raw ledger entry by its key.",
+        "tags": [
+          "mcp",
+          "stellar",
+          "ledger"
+        ]
+      },
+      "type": "mcp",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "400",
+      "input": {
+        "type": "mcp",
+        "toolName": "fetch_ledger_entry",
+        "transport": "streamable-http",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "keyXdr": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "keyXdr"
+          ]
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785610929882,
+      "settlements": 320,
+      "firstSeenAt": 1785610929882
+    },
+    {
+      "id": "https://api.addresses.example/v1/geocode",
+      "resource": {
+        "url": "https://api.addresses.example/v1/geocode",
+        "serviceName": "Address Geocoding",
+        "description": "Convert a free-form Brazilian street address into latitude and longitude with a confidence score.",
+        "tags": [
+          "geo",
+          "geocoding",
+          "address",
+          "lookup"
+        ],
+        "iconUrl": "https://cdn.sextant.build/icons/geo.svg"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GDQNY3PBOJOKYZSRMK2S7LHHGWZIUISD4QORETLMXEWXBI7KFZZMKTL3",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "1100",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "q": "Avenida Paulista 1578, Sao Paulo"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "geopoint"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785524529882,
+      "settlements": 760,
+      "firstSeenAt": 1785524529882
+    },
+    {
+      "id": "https://api.nlp.example/v1/speech-to-text",
+      "resource": {
+        "url": "https://api.nlp.example/v1/speech-to-text",
+        "serviceName": "Speech To Text",
+        "description": "Transcribe audio to text with word-level timestamps and speaker diarization.",
+        "tags": [
+          "speech",
+          "audio",
+          "transcription",
+          "ai"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "9000",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "audioUrl": "https://files.example/call.wav"
+        }
+      },
+      "output": {
+        "type": "json",
+        "format": "transcript"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785438129882,
+      "settlements": 540,
+      "firstSeenAt": 1785438129882
+    },
+    {
+      "id": "https://api.payments.example/v1/boleto/parse",
+      "resource": {
+        "url": "https://api.payments.example/v1/boleto/parse",
+        "serviceName": "Boleto Barcode Parser",
+        "description": "Decode a Brazilian boleto barcode or typeable line into issuer, due date, amount and validation digits.",
+        "tags": [
+          "payments",
+          "barcode",
+          "parsing"
+        ]
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GDQNY3PBOJOKYZSRMK2S7LHHGWZIUISD4QORETLMXEWXBI7KFZZMKTL3",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "600",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "line": "34191790010104351004791020150008291070026000"
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1785265329882,
+      "settlements": 205,
+      "firstSeenAt": 1785265329882
+    },
+    {
+      "id": "https://api.chaindata.example/v1/contract/events",
+      "resource": {
+        "url": "https://api.chaindata.example/v1/contract/events"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GBRPYHIL2CI3FNQ4BXLFMNDLFJUNPU2HY3ZMFSHONUCEOASW7QC7OX2H",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "2000",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "contractId": "CABC",
+          "topic": "transfer"
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1784746929882,
+      "settlements": 61,
+      "firstSeenAt": 1784746929882
+    },
+    {
+      "id": "https://api.registry.example/v1/taxid/check",
+      "resource": {
+        "url": "https://api.registry.example/v1/taxid/check"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "200",
+      "input": {
+        "type": "http",
+        "method": "GET",
+        "queryParams": {
+          "value": "12345678909"
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1784228529882,
+      "settlements": 14,
+      "firstSeenAt": 1784228529882
+    },
+    {
+      "id": "https://api.logistics.example/v1/freight/quote",
+      "resource": {
+        "url": "https://api.logistics.example/v1/freight/quote"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "1800",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "origin": "01310930",
+          "destination": "20040020",
+          "weightKg": "2.5"
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1783018929882,
+      "settlements": 3,
+      "firstSeenAt": 1783018929882
+    },
+    {
+      "id": "https://api.nlp.example/v1/sentiment",
+      "resource": {
+        "url": "https://api.nlp.example/v1/sentiment"
+      },
+      "type": "http",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "400",
+      "input": {
+        "type": "http",
+        "method": "POST",
+        "bodyType": "json",
+        "body": {
+          "text": "sample"
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1781895729882,
+      "settlements": 7,
+      "firstSeenAt": 1781895729882
+    },
+    {
+      "id": "https://mcp.legacy.example/mcp#legacy_lookup",
+      "resource": {
+        "url": "https://mcp.legacy.example/mcp"
+      },
+      "type": "mcp",
+      "network": "stellar:testnet",
+      "scheme": "exact",
+      "payTo": "GCFXHS4GXL6BVUCXBWXGTITROWLVYXQKQLF4YH5O5JT3YZXCYPAFBJZB",
+      "asset": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+      "maxAmountRequired": "750",
+      "input": {
+        "type": "mcp",
+        "toolName": "legacy_lookup",
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            }
+          },
+          "required": []
+        }
+      },
+      "output": {
+        "type": "json"
+      },
+      "extensions": [
+        "bazaar"
+      ],
+      "lastSeenAt": 1780599729882,
+      "settlements": 1,
+      "firstSeenAt": 1780599729882
     }
   ],
-  "total": 10,
+  "total": 37,
   "integrity": [
     {
       "at": 1786041943151,

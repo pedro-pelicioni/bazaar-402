@@ -1,6 +1,6 @@
 const DECIMALS = 7
 
-/** stroops-style integer string -> human PREGO amount */
+/** stroops-style integer string -> human SXT amount */
 export function formatAmount(raw: string | number | undefined): string {
   const n = Number(raw ?? 0)
   if (!Number.isFinite(n)) return '—'

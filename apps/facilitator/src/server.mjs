@@ -184,6 +184,38 @@ function reasonOf(value, fallback) {
   return fallback;
 }
 
+/** Turn a machine code such as `unexpected_verify_error` into a readable sentence. */
+function humanize(code) {
+  const words = String(code).replace(/[_-]+/g, " ").trim();
+  if (!words) return "";
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * Build the human-readable rejection reason the RFP requires.
+ *
+ * `@x402/stellar` reports failures as short machine codes (`unexpected_verify_error`,
+ * `insufficient_funds`, …) and sometimes a richer `invalidMessage`/`errorMessage`.
+ * A bare code is not human-readable, so we always emit a sentence and keep the raw
+ * code appended in brackets for machine consumers.
+ */
+function explainRejection(result, codeField, messageField, fallback) {
+  const code = result?.[codeField];
+  const message = result?.[messageField];
+
+  const hasSentence = typeof message === "string" && message.trim().length > 0;
+  const hasCode = typeof code === "string" && code.trim().length > 0;
+
+  if (hasSentence && hasCode) return `${message.trim()} [${code.trim()}]`;
+  if (hasSentence) return message.trim();
+  if (hasCode) {
+    const readable = humanize(code);
+    // Already a sentence (contains a space)? Then leave it be.
+    return code.includes(" ") ? code : `${readable} [${code.trim()}]`;
+  }
+  return fallback;
+}
+
 function encodeExtensionResponses(obj) {
   return Buffer.from(JSON.stringify(obj), "utf8").toString("base64");
 }
@@ -324,7 +356,12 @@ app.post("/verify", async (req, res) => {
     const isValid = Boolean(result?.isValid);
     const invalidReason = isValid
       ? null
-      : reasonOf(result?.invalidReason, "Payment verification failed for an unspecified reason.");
+      : explainRejection(
+          result,
+          "invalidReason",
+          "invalidMessage",
+          "Payment verification failed for an unspecified reason.",
+        );
     const payer = result?.payer ?? paymentPayload?.payload?.from ?? null;
 
     emit({
@@ -364,7 +401,12 @@ app.post("/settle", async (req, res) => {
     const success = Boolean(result?.success);
     const errorReason = success
       ? null
-      : reasonOf(result?.errorReason, "Settlement failed for an unspecified reason.");
+      : explainRejection(
+          result,
+          "errorReason",
+          "errorMessage",
+          "Settlement failed for an unspecified reason.",
+        );
     const transaction = result?.transaction ?? null;
     const payer = result?.payer ?? paymentPayload?.payload?.from ?? null;
 

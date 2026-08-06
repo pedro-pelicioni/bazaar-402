@@ -1,0 +1,22 @@
+{
+  "name": "@sextant/index",
+  "version": "1.0.0",
+  "description": "SEXTANT — facilitator-side x402 bazaar catalog and search index for Stellar",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs",
+    "./rank": "./src/rank.mjs",
+    "./integrity": "./src/integrity.mjs",
+    "./http": "./src/http.mjs",
+    "./seed": "./src/seed.mjs"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "node --test ../../test/",
+    "seed": "node ./src/seed.mjs"
+  },
+  "license": "ISC"
+}

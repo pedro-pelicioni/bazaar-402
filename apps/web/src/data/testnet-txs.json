@@ -1,27 +1,72 @@
 [
   {
-    "hash": "c58e68b9b822f2b7da15288e7480ac3d3de44af10a00a008517fb7dc74b71f22",
-    "label": "SXT SAC deploy — asset bootstrap",
-    "source": "demo"
+    "hash": "6737943f906ac4fea7c94e5b832fcfce182244d492081c02110b213e0ff0a124",
+    "label": "Issuer setOptions home domain",
+    "source": "live"
   },
   {
-    "hash": "1973d58eef2b470b7ec496e7163ef5f7d25f251c79b2ce211689c5e031869070",
-    "label": "settle — NF-e Invoice Reader",
-    "source": "demo"
+    "hash": "4d3cfc2b2311df4b8ba0cde79f502a81239295ec5c2698ceb316c4b4f84e18c6",
+    "label": "changeTrust SELLER SXT",
+    "source": "live"
   },
   {
-    "hash": "46c5d8b51c365017f111ecb6bd2cd2d0bce4cc6fea796a9c41d4238db8206c1e",
-    "label": "settle — Company Registry Enrichment",
-    "source": "demo"
+    "hash": "a6df9c5e3fa064f95e68768ba9b242cd87a1d63ac0dab109082308877b9f95b1",
+    "label": "changeTrust PAYER SXT",
+    "source": "live"
   },
   {
-    "hash": "13a606f0b15ec8e707ccf9ff1c5ff540c9e1627eece892efd8fdafc1c815eab6",
-    "label": "settle — PIX Statement Reconciler (MCP)",
-    "source": "demo"
+    "hash": "35733092507e109d0d6d22710dc31f4ec9d5cd1ca004c8fa17346fa77c90168a",
+    "label": "Payment ISSUER PAYER 10000 SXT",
+    "source": "live"
   },
   {
-    "hash": "34ea2c3043462048d021184634f752132172f19143450aa35e8260a1df4b1cd1",
-    "label": "settle — Postal Code Geocoder",
-    "source": "demo"
+    "hash": "b361e1693490952b48ef314d381ba0d6513aa68c047da092f7858e1d73e855f3",
+    "label": "Deploy SAC createStellarAssetContract",
+    "source": "live"
+  },
+  {
+    "hash": "dafe82019577f725426e46f8dcfa9e2dd2867b0987663dfb1db2af41d3c36884",
+    "label": "demo: postal code lookup",
+    "source": "live"
+  },
+  {
+    "hash": "c1acc578032a3a06a88603f971d871703f45b1246e0f1aa8862500495edbfba6",
+    "label": "demo: fx usd brl",
+    "source": "live"
+  },
+  {
+    "hash": "d02095096d1e6bb2b035250de1e653957a7b00e796ce949d5eff041ae3a4c810",
+    "label": "demo: ocr invoice",
+    "source": "live"
+  },
+  {
+    "hash": "ebd60b594283aa9787b0bcfed361f57154b9bd69d1392762519c0ba2455d6703",
+    "label": "demo: postal code lookup",
+    "source": "live"
+  },
+  {
+    "hash": "2e3e1a84d788d22c91097ca5b09cdf4549f247b3551e76d73cdafcff96312582",
+    "label": "demo: fx usd brl",
+    "source": "live"
+  },
+  {
+    "hash": "bcabce960c29bec4821013aa80c3cbef974854488bf767fcc5ef84e96ded942d",
+    "label": "demo: ocr invoice",
+    "source": "live"
+  },
+  {
+    "hash": "01fee0b5c53a4f94cf9b76ff8155aa8b126d4f6fbff92328d800534c3d6a4f76",
+    "label": "cleanup: remove legacy PREGO trustline SELLER",
+    "source": "live"
+  },
+  {
+    "hash": "b5a8fd3b5239a2eb8ae026046dff453c6f1a665091a58da31b026fe123b8258b",
+    "label": "cleanup: return 10000.0000000 PREGO to issuer PAYER",
+    "source": "live"
+  },
+  {
+    "hash": "412d5840441e415f19298c22d2653c1db779220191e3f0bd4c13f49b760a3c58",
+    "label": "cleanup: remove legacy PREGO trustline PAYER",
+    "source": "live"
   }
 ]

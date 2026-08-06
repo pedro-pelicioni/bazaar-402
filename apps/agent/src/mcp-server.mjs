@@ -101,7 +101,7 @@ export function createServer() {
     {
       instructions:
         'SEXTANT exposes the Stellar Bazaar: a discovery index of x402-priced HTTP and MCP resources on ' +
-        'stellar:testnet. Workflow: sextant_search (natural language, any language) -> sextant_describe ' +
+        'stellar:testnet. Workflow: sextant_search (natural language) -> sextant_describe ' +
         '(exact call contract for one id) -> sextant_pay (runs the 402 challenge, signs the Soroban auth ' +
         'entry with the operator PAYER key, retries, returns the unlocked payload plus the settled tx hash). ' +
         'Use sextant_browse to enumerate the catalogue. Every rejection returns ok:false with a SEXTANT_* ' +
@@ -115,9 +115,9 @@ export function createServer() {
     {
       title: 'Search the Stellar Bazaar',
       description:
-        'Rank paid resources in the Stellar Bazaar against a natural-language query (English or Portuguese; ' +
-        'the index does hybrid BM25 + field-boost retrieval). Returns each candidate with its _explain ' +
-        'ranking breakdown so the choice is auditable. Prices are atomic units of the record asset.',
+        'Rank paid resources in the Stellar Bazaar against a natural-language query. The index performs ' +
+        'hybrid BM25 + field-boost retrieval and returns each candidate with its _explain ranking breakdown, ' +
+        'so the choice is auditable. Prices are atomic units of the record asset.',
       inputSchema: {
         query: z.string().min(1).describe('Natural-language description of the data or capability you need.'),
         limit: z.number().int().min(1).max(50).optional().describe('Maximum candidates to return. Default 5.'),

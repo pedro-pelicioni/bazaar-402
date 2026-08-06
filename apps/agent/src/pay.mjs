@@ -306,8 +306,13 @@ export async function payAndFetch(url, opts = {}) {
   if (first.status !== 402) {
     const body = await readBody(first);
     if (first.status >= 400) {
+      const hint =
+        first.status === 404 || first.status === 405
+          ? ` The route may require a different HTTP method — call sextant_describe on this resource and use ` +
+            `howToCall.method (this request used ${method}).`
+          : '';
       return done(
-        fail('SEXTANT_UPSTREAM_ERROR', `Resource returned HTTP ${first.status} instead of a 402 challenge.`, {
+        fail('SEXTANT_UPSTREAM_ERROR', `Resource returned HTTP ${first.status} instead of a 402 challenge.${hint}`, {
           status: first.status,
           body
         })
@@ -320,17 +325,24 @@ export async function payAndFetch(url, opts = {}) {
 
   /* -- 2. parse the challenge -------------------------------------- */
   let paymentRequired;
+  const challengeBody = await readBody(first);
   try {
-    const body = await readBody(first);
-    paymentRequired = httpClient.getPaymentRequiredResponse((n) => first.headers.get(n), body);
+    paymentRequired = httpClient.getPaymentRequiredResponse((n) => first.headers.get(n), challengeBody);
   } catch (err) {
-    return done(
-      fail(
-        'SEXTANT_402_MALFORMED',
-        `The 402 response carried no decodable PAYMENT-REQUIRED header (x402 v2) and no v1 body: ${errText(err)}`,
-        { status: 402 }
-      )
-    );
+    // Many v2 servers put the challenge in the JSON body rather than the
+    // PAYMENT-REQUIRED header. Accept that too — it is the same object.
+    if (challengeBody && typeof challengeBody === 'object' && Array.isArray(challengeBody.accepts)) {
+      paymentRequired = { x402Version: challengeBody.x402Version ?? 2, ...challengeBody };
+    } else {
+      return done(
+        fail(
+          'SEXTANT_402_MALFORMED',
+          `The 402 response carried no decodable PAYMENT-REQUIRED header and no challenge body with an ` +
+            `\`accepts\` array: ${errText(err)}`,
+          { status: 402, body: challengeBody }
+        )
+      );
+    }
   }
 
   const accepts = Array.isArray(paymentRequired?.accepts) ? paymentRequired.accepts : [];

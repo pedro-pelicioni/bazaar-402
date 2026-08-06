@@ -1,4 +1,4 @@
-import type { Explain, PregaoRecord } from './types'
+import type { Explain, SextantRecord } from './types'
 
 /**
  * Client-side mirror of packages/index `scoreHybrid`: BM25 over boosted fields
@@ -39,7 +39,7 @@ export function tokenize(s: string): string[] {
 
 type Fields = Record<string, string[]>
 
-function fieldsOf(r: PregaoRecord): Fields {
+function fieldsOf(r: SextantRecord): Fields {
   return {
     serviceName: tokenize(r.resource?.serviceName ?? ''),
     tags: tokenize((r.resource?.tags ?? []).join(' ')),
@@ -49,7 +49,7 @@ function fieldsOf(r: PregaoRecord): Fields {
 }
 
 /** 0..1 — how completely the seller filled out the advertisement */
-export function metadataScore(r: PregaoRecord): { score: number; missing: string[] } {
+export function metadataScore(r: SextantRecord): { score: number; missing: string[] } {
   const checks: [string, boolean][] = [
     ['serviceName', Boolean(r.resource?.serviceName)],
     ['description ≥ 80', (r.resource?.description ?? '').length >= 80],
@@ -70,7 +70,7 @@ const recencyScore = (ts: number) => {
   return Math.exp(-hours / 72)
 }
 
-export function rank(query: string, docs: PregaoRecord[]): PregaoRecord[] {
+export function rank(query: string, docs: SextantRecord[]): SextantRecord[] {
   const q = tokenize(query)
   const corpus = docs.map(fieldsOf)
   const N = docs.length || 1
@@ -103,7 +103,7 @@ export function rank(query: string, docs: PregaoRecord[]): PregaoRecord[] {
           fuzzy = tf > 0
         }
         if (!tf) continue
-        const n = df[field][term] ?? (fuzzy ? 1 : 0) || 1
+        const n = Math.max(1, df[field][term] ?? (fuzzy ? 1 : 1))
         const idf = Math.log(1 + (N - n + 0.5) / (n + 0.5))
         const denom = tf + K1 * (1 - B + (B * toks.length) / avgdl[field])
         const contrib = (idf * (tf * (K1 + 1))) / denom * FIELD_BOOST[field]

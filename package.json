@@ -1,24 +1,44 @@
 {
   "name": "sextant",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "SEXTANT — find what to pay for on Stellar. Self-hosted x402 facilitator, paid API seller and a bazaar discovery index.",
   "type": "module",
+  "private": true,
   "license": "Apache-2.0",
-  "description": "SEXTANT — find what to pay for on Stellar. Discovery for the x402 economy.",
   "workspaces": [
-    "packages/*",
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
-  "engines": {
-    "node": ">=22"
+  "directories": {
+    "doc": "docs",
+    "test": "test"
   },
   "scripts": {
     "setup": "node scripts/setup-testnet.mjs",
+    "dev:facilitator": "node apps/facilitator/src/server.mjs",
+    "dev:seller": "node apps/seller/src/server.mjs",
+    "dev:web": "npm --workspace apps/web run dev",
+    "dev:all": "concurrently -n facilitator,seller -c cyan,magenta \"npm run dev:facilitator\" \"npm run dev:seller\"",
     "demo": "node scripts/demo-loop.mjs",
-    "test": "node --test test/ packages/index/test/ 2>/dev/null || node --test test/"
+    "cleanup": "node scripts/cleanup-legacy-asset.mjs",
+    "test": "node scripts/run-tests.mjs",
+    "test:agent": "node --test apps/agent/src/replay-guard.test.mjs",
+    "demo:agent": "node apps/agent/src/cli.mjs",
+    "mcp": "node apps/agent/src/mcp-server.mjs"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/pedro-pelicioni/bazaar-402"
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@stellar/stellar-sdk": "^16.2.0",
+    "@x402/core": "^2.21.0",
+    "@x402/express": "^2.21.0",
+    "@x402/extensions": "^2.21.0",
+    "@x402/fetch": "^2.21.0",
+    "@x402/stellar": "^2.21.0",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "picocolors": "^1.1.1",
+    "zod": "^3.25.76"
   }
 }

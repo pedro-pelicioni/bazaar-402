@@ -6,7 +6,7 @@ export type ResourceBlock = {
   description?: string
 }
 
-export type PregaoRecord = {
+export type SextantRecord = {
   id: string
   resource: ResourceBlock
   type: 'http' | 'mcp'
@@ -14,7 +14,10 @@ export type PregaoRecord = {
   scheme: string
   payTo: string
   asset: string
+  /** x402 v1 name for the price */
   maxAmountRequired: string
+  /** x402 v2 name for the price — read both, render whichever is present */
+  amount?: string
   input?: Record<string, unknown>
   output?: Record<string, unknown>
   routeTemplate?: string
@@ -47,7 +50,7 @@ export type TxEntry = { hash: string; label: string; source?: 'live' | 'demo' }
 export type Source = 'live' | 'demo'
 
 export type Catalog = {
-  items: PregaoRecord[]
+  items: SextantRecord[]
   integrity: IntegrityEntry[]
   source: Source
   asset: string

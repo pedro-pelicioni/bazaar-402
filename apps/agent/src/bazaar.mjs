@@ -27,7 +27,8 @@ async function getJson(url, timeoutMs = 8000) {
       to ? 'SEXTANT_TIMEOUT' : 'SEXTANT_INDEX_UNREACHABLE',
       to
         ? `The bazaar index at ${url} did not answer within ${timeoutMs}ms.`
-        : `The bazaar index is not reachable at ${url} (${errText(err)}). Start it with \`npm run dev\` in apps/facilitator.`
+        : `The bazaar index is not reachable at ${url} (${errText(err)}). ` +
+          'Start the stack with "npm run dev:all" from the repo root, or point INDEX_URL elsewhere.'
     );
   }
   const text = await res.text().catch(() => '');
@@ -94,7 +95,12 @@ export async function search({ query, limit = 5, network, maxPrice, type, payTo,
   const res = await getJson(u.toString());
   if (!res.ok) return res;
 
-  let items = itemsOf(res.json).map((r) => summarise(r, { _explain: r?._explain ?? null, score: r?.score ?? r?._explain?.score ?? null }));
+  let items = itemsOf(res.json).map((r) =>
+    summarise(r, {
+      _explain: r?._explain ?? null,
+      score: r?._score ?? r?.score ?? r?._explain?.score ?? null
+    })
+  );
 
   if (maxPrice !== undefined && maxPrice !== null && String(maxPrice) !== '') {
     let ceiling;
@@ -123,7 +129,7 @@ export async function search({ query, limit = 5, network, maxPrice, type, payTo,
     return fail(
       'SEXTANT_NO_RESULTS',
       `No resource in the bazaar index matched "${query}"${network ? ` on ${network}` : ''}. ` +
-        `The index holds ${res.json?.total ?? 'an unknown number of'} records; try broader terms or sextant_browse.`
+        `The index returned 0 matches; try broader terms, or call sextant_browse to see the whole catalogue.`
     );
   }
 
@@ -165,7 +171,7 @@ export async function browse({ type, payTo, network, scheme, extensions, limit =
     items,
     total: res.json?.total ?? items.length,
     limit: res.json?.limit ?? clampLimit(limit, 100),
-    offset: res.json?.offset ?? Number(offset) || 0,
+    offset: res.json?.offset ?? (Number(offset) || 0),
     source: cfg.indexUrl
   };
 }
@@ -231,6 +237,10 @@ export function describeRecord(rec) {
       url: rec?.resource?.url ?? null,
       method: rec?.input?.method ?? (rec?.type === 'mcp' ? 'MCP' : 'GET'),
       params: Object.fromEntries(params.map((p) => [p.name, p.example ?? `<${p.type || 'string'}>`])),
+      methodHint:
+        (rec?.input?.method ?? 'GET') === 'GET'
+          ? 'Pass params as the query string (sextant_pay defaults to GET).'
+          : `This endpoint is ${rec?.input?.method}: call sextant_pay with method:"${rec?.input?.method}" and pass params as the JSON body.`,
       note:
         rec?.type === 'mcp'
           ? `MCP tool "${rec?.input?.toolName ?? 'unknown'}" — call the upstream MCP server; sextant_pay covers the HTTP-facing 402 leg.`
@@ -244,15 +254,18 @@ function normaliseParams(rec) {
   const out = [];
   const push = (name, spec, where) => {
     if (!name) return;
-    const s = spec && typeof spec === 'object' ? spec : {};
+    // A spec can be a JSON-Schema-ish object, or just an example value.
+    const isSpec = spec && typeof spec === 'object' && !Array.isArray(spec);
+    const s = isSpec ? spec : {};
+    const asExample = isSpec ? undefined : spec;
     out.push({
       name,
       in: where,
-      type: s.type ?? (typeof spec === 'string' ? spec : 'string'),
-      required: Boolean(s.required) || (Array.isArray(spec?.required) ? false : false),
-      description: s.description ?? (typeof spec === 'string' ? spec : null),
+      type: s.type ?? (asExample === undefined ? 'string' : Array.isArray(spec) ? 'array' : typeof asExample),
+      required: Boolean(s.required),
+      description: s.description ?? null,
       enum: s.enum ?? null,
-      example: s.example ?? s.default ?? null
+      example: s.example ?? s.default ?? (asExample === undefined ? null : asExample)
     });
   };
 

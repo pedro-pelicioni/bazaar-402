@@ -106,7 +106,7 @@ const ROUTES = [
     aliases: [],
     priceSxt: 0.01,
     serviceName: "sextant-fx",
-    description: "Live USD/BRL foreign-exchange quote with bid, ask and mid price.",
+    description: "USD/BRL exchange rate with bid, ask and mid price.",
     tags: ["fx", "forex", "usd", "brl", "quote", "finance"],
     discovery: declareDiscoveryExtension({
       input: {},
@@ -145,7 +145,7 @@ const ROUTES = [
     priceSxt: 0.005,
     serviceName: "sextant-postal",
     description:
-      "Brazilian postal-code (CEP) lookup returning street, neighborhood, city and state.",
+      "Brazilian postal code lookup returning street, neighborhood, city and state.",
     tags: ["postal-code", "address", "brazil", "geocoding", "lookup"],
     discovery: declareDiscoveryExtension({
       input: { cep: "01310100" },
@@ -154,7 +154,7 @@ const ROUTES = [
           cep: {
             type: "string",
             description:
-              "Brazilian postal code (CEP), 8 digits, with or without the hyphen. Example: 01310100.",
+              "Brazilian postal code, 8 digits, hyphen optional. Example: 01310100.",
           },
         },
         required: ["cep"],
@@ -164,7 +164,7 @@ const ROUTES = [
         properties: {
           cep: {
             type: "string",
-            description: "Brazilian postal code (CEP) as an 8-digit string.",
+            description: "Brazilian postal code, 8 digits, hyphen optional.",
           },
         },
         required: ["cep"],
@@ -200,7 +200,7 @@ const ROUTES = [
     priceSxt: 0.05,
     serviceName: "sextant-ocr",
     description:
-      "Optical character recognition for a Brazilian electronic invoice (NF-e), returning structured line items and totals.",
+      "Invoice OCR — Brazilian electronic invoice (NF-e), returning structured line items and totals.",
     tags: ["ocr", "invoice", "nfe", "brazil", "document", "extraction"],
     discovery: declareDiscoveryExtension({
       bodyType: "json",
@@ -231,7 +231,7 @@ const ROUTES = [
         example: {
           documentType: "NFe",
           accessKey: "35240612345678000199550010000012341000012345",
-          issuer: { name: "Comercio Exemplo LTDA", taxId: "12.345.678/0001-99" },
+          issuer: { name: "Example Trading Ltd", taxId: "12.345.678/0001-99" },
           total: 1234.56,
           currency: "BRL",
           lineItems: [{ description: "Item A", quantity: 2, unitPrice: 100, total: 200 }],
@@ -245,8 +245,8 @@ const ROUTES = [
         documentType: "NFe",
         accessKey: "35240612345678000199550010000012341000012345",
         issuedAt: new Date().toISOString(),
-        issuer: { name: "Comercio Exemplo LTDA", taxId: "12.345.678/0001-99" },
-        recipient: { name: "Cliente Demonstracao SA", taxId: "98.765.432/0001-10" },
+        issuer: { name: "Example Trading Ltd", taxId: "12.345.678/0001-99" },
+        recipient: { name: "Demo Customer Inc", taxId: "98.765.432/0001-10" },
         currency: "BRL",
         lineItems: [
           { description: "Consulting hours", quantity: 2, unitPrice: 400.0, total: 800.0 },
@@ -510,7 +510,7 @@ for (const route of ROUTES) {
 // payment has ever been settled.
 // ---------------------------------------------------------------------------
 
-async function preRegister() {
+async function preRegister({ quiet = false } = {}) {
   for (const route of ROUTES) {
     const disc = discoveryFor(route);
     const record = {
@@ -540,9 +540,9 @@ async function preRegister() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify(record),
       });
-      console.log(`[seller] pre-registered ${route.path} -> ${res.status}`);
+      if (!quiet) console.log(`[seller] pre-registered ${route.path} -> ${res.status}`);
     } catch (e) {
-      console.warn(`[seller] could not pre-register ${route.path}: ${e.message}`);
+      if (!quiet) console.warn(`[seller] could not pre-register ${route.path}: ${e.message}`);
     }
   }
 }
@@ -558,4 +558,7 @@ app.listen(PORT, async () => {
   console.log(`[seller]   payTo ${SELLER_PUBLIC}\n`);
   // Give the facilitator/index a moment if they booted together.
   setTimeout(preRegister, 1200);
+  // The index is in-memory, so it empties whenever the facilitator restarts.
+  // Re-announce ourselves periodically to heal that without any manual step.
+  setInterval(() => preRegister({ quiet: true }), 30_000).unref?.();
 });

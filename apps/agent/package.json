@@ -1,0 +1,31 @@
+{
+  "name": "@sextant/agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SEXTANT agent surface — MCP server + x402 payment client for the Stellar Bazaar",
+  "bin": {
+    "sextant-mcp": "./src/mcp-server.mjs",
+    "sextant": "./src/cli.mjs"
+  },
+  "exports": {
+    ".": "./src/pay.mjs",
+    "./pay": "./src/pay.mjs",
+    "./bazaar": "./src/bazaar.mjs",
+    "./mcp-server": "./src/mcp-server.mjs"
+  },
+  "scripts": {
+    "mcp": "node src/mcp-server.mjs",
+    "demo": "node src/cli.mjs",
+    "test": "node --test src/replay-guard.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@stellar/stellar-sdk": "^16.2.0",
+    "@x402/core": "^2.21.0",
+    "@x402/fetch": "^2.21.0",
+    "@x402/stellar": "^2.21.0",
+    "picocolors": "^1.1.1",
+    "zod": "^3.25.76"
+  }
+}

@@ -107,33 +107,31 @@ function usage() {
   out();
   out(hi('  sextant') + dim(' — agent-side demo of the Stellar Bazaar payment loop'));
   out();
-  out(`  ${key('node apps/agent/src/cli.mjs')} ${dim('"what does the dollar cost today"')}`);
+  out(`  ${key('node apps/agent/src/cli.mjs')} ${dim('"usd to brl exchange rate"')}`);
   out();
   out(`  ${dim('--dry-run, -n')}     discover and rank only; never signs, never spends`);
   out(`  ${dim('--max-price N')}     refuse to pay above N atomic units`);
   out(`  ${dim('--limit N')}         number of candidates to sight (default 5)`);
-  out(`  ${dim('--pt')}              use a Portuguese query, to show bilingual retrieval`);
   out();
 }
 
 /* ------------------------------------------------------------------ *
  * Main
  * ------------------------------------------------------------------ */
-const PT_QUERY = 'quanto custa o dólar hoje';
-const DEFAULT_QUERY = 'what does the dollar cost today';
+const DEFAULT_QUERY = 'usd to brl exchange rate';
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) return usage();
 
   const cfg = loadConfig();
-  const query = args.pt ? PT_QUERY : args.query || DEFAULT_QUERY;
+  const query = args.query || DEFAULT_QUERY;
 
   const mode = args.dryRun ? warn('DRY RUN — no funds move') : good('LIVE — testnet funds will move');
   banner(cfg, mode);
 
   /* -- 1. QUERY --------------------------------------------------- */
-  movement('01', 'QUERY', args.pt ? '(Portuguese input — the index retrieves across languages)' : '');
+  movement('01', 'QUERY');
   rail();
   rail(`${dim('"')}${hi(query)}${dim('"')}`);
   rail();
@@ -154,10 +152,10 @@ async function main() {
     return;
   }
 
-  const maxScore = Math.max(...found.items.map((i) => Number(i.score ?? i._explain?.score ?? 0)), 0.0001);
+  const maxScore = Math.max(...found.items.map((i) => Number(i.score ?? i._score ?? 0)), 0.0001);
   rail();
   found.items.forEach((item, idx) => {
-    const score = Number(item.score ?? item._explain?.score ?? 0);
+    const score = Number(item.score ?? item._score ?? 0);
     const rank = dim(String(idx + 1).padStart(2, '0'));
     const name = idx === 0 ? pc.bold(pc.cyan(item.serviceName || item.id || '(unnamed)')) : hi(item.serviceName || item.id || '(unnamed)');
     rail(`${rank} ${meter(score, maxScore)} ${dim(score.toFixed(3).padStart(6))}  ${name}`);
@@ -280,7 +278,7 @@ function footerDown() {
   const cfg = loadConfig();
   out();
   out(dim('  Nothing was signed and nothing was spent.'));
-  out(dim(`  Bring the stack up:  ${pc.reset(pc.cyan('npm run dev'))}${dim('   (facilitator :4021 · index :4022 · seller :4023)')}`));
+  out(dim(`  Bring the stack up:  ${pc.reset(pc.cyan('npm run dev:all'))}${dim('   (facilitator :4021 · index :4022 · seller :4023)')}`));
   out(dim(`  Or point elsewhere:  ${pc.reset(pc.cyan('INDEX_URL=https://... node apps/agent/src/cli.mjs "..."'))}`));
   out();
   out(rule());
@@ -296,8 +294,12 @@ function explainLine(explain) {
     if (f.length) parts.push(`fields ${f.join('+')}`);
   }
   if (explain.terms) {
-    const t = Array.isArray(explain.terms) ? explain.terms : Object.keys(explain.terms);
-    if (t.length) parts.push(`terms ${t.slice(0, 5).join(',')}`);
+    const raw = Array.isArray(explain.terms) ? explain.terms : Object.keys(explain.terms);
+    const t = raw.map((x) => (typeof x === 'string' ? x : (x?.term ?? ''))).filter(Boolean);
+    if (t.length) parts.push(`terms ${t.slice(0, 6).join('+')}`);
+  }
+  if (explain.quality?.completeness !== undefined) {
+    parts.push(`completeness ${Number(explain.quality.completeness).toFixed(2)}`);
   }
   if (!parts.length) {
     const compact = JSON.stringify(explain);
