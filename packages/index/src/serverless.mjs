@@ -29,9 +29,10 @@
  * With no environment variables at all this serves a read-only catalog seeded from
  * packages/index/src/seed.mjs. That is the baseline and it must never fail: a public
  * Bazaar that answers out of the box beats a write-capable one that needs setup nobody
- * has done. Configuring KV_REST_API_URL + KV_REST_API_TOKEN upgrades it to a durable,
- * shared catalog; configuring SEXTANT_WRITE_TOKEN on top of that opens the write path.
- * Every one of those is optional and a missing one is never an error.
+ * has done. Configuring a durable store — either KV_REST_API_URL + KV_REST_API_TOKEN
+ * (Redis REST API) or KV_REDIS_URL (Redis protocol) — upgrades it to a durable, shared
+ * catalog; configuring SEXTANT_WRITE_TOKEN on top of that opens the write path. Every one
+ * of those is optional and a missing one is never an error.
  */
 
 import { createCatalog } from './index.mjs';
@@ -384,6 +385,10 @@ export async function healthHandler(req, res, env = process.env) {
       durableStore: {
         configured: state.storeConfigured,
         reachable: storeReachable,
+        // Which of the two backends is live: `rest` (HTTPS API) or `redis` (TCP
+        // protocol). An operator staring at a `reachable: false` needs to know which one
+        // is being attempted before any of the rest of this is diagnosable.
+        transport: state.store?.transport ?? null,
         host: state.store?.host ?? null,
         key: state.store?.key ?? null,
         loadedRecords: state.fromStore,
@@ -416,8 +421,11 @@ function writeState(state, env = process.env) {
   if (!state.storeConfigured) {
     return {
       enabled: false,
+      // Name BOTH transports. A reason that only mentions the REST pair sends anyone
+      // holding a Vercel Marketplace Redis — which issues a connection URL and no REST
+      // endpoint whatsoever — hunting for variables their provider will never give them.
       reason:
-        'catalog is read-only: no durable store is configured. Set KV_REST_API_URL and KV_REST_API_TOKEN to enable auto-cataloging.',
+        'catalog is read-only: no durable store is configured. Set KV_REST_API_URL and KV_REST_API_TOKEN (Redis REST API), or KV_REDIS_URL (a redis:// or rediss:// connection URL, which is what the Vercel Marketplace Redis integration provides), to enable auto-cataloging.',
     };
   }
   if (!token) {

@@ -78,13 +78,16 @@ nobody has done.
 
 | Variable | Required | Effect |
 |---|---|---|
-| `KV_REST_API_URL` | no | Redis/KV REST endpoint. With the token, switches the catalog to `kv` mode. |
+| `KV_REST_API_URL` | no | Redis/KV **REST** endpoint. With the token, switches the catalog to `kv` mode. |
 | `KV_REST_API_TOKEN` | no | Bearer token for the above. |
 | `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | no | Accepted as aliases when you wire Upstash up yourself. |
+| `KV_REDIS_URL` | no | Redis **protocol** connection URL, `redis://` or `rediss://` (TLS). Used when no REST pair is set. |
+| `REDIS_URL` | no | Accepted as an alias for `KV_REDIS_URL`. |
 | `SEXTANT_WRITE_TOKEN` | no | Enables `POST /discovery/resources`. Callers must send `Authorization: Bearer <value>`. |
 | `SEXTANT_KV_KEY` | no | Redis hash key. Default `sextant:catalog:v1`. |
 | `SEXTANT_KV_TTL_MS` | no | How long a store snapshot is reused before re-reading. Default `5000`. |
 | `SEXTANT_KV_TIMEOUT_MS` | no | Per-command timeout against the store. Default `4000`. |
+| `SEXTANT_REDIS_CONNECT_TIMEOUT_MS` | no | Connect timeout, protocol transport only. Default `2000`. |
 | `SEXTANT_CACHE_S_MAXAGE` | no | CDN `s-maxage` on the read endpoints. Default `60`. |
 | `SEXTANT_CACHE_SWR` | no | CDN `stale-while-revalidate`. Default `600`. |
 | `SEED_CATALOG` | no | `0` boots an empty catalog instead of the seed corpus. |
@@ -92,6 +95,39 @@ nobody has done.
 
 A missing, empty or malformed value never crashes a request. A configured-but-unreachable
 store falls back to the seeded catalog and reports the failure on `/discovery/health`.
+
+### Two ways to reach Redis, and which one you get
+
+Which of these you can use is decided by whoever provisioned the database:
+
+- **REST** — `KV_REST_API_URL` + `KV_REST_API_TOKEN`. An HTTPS API, stateless, no
+  connection to hold. Vercel KV and Upstash both expose it. **Preferred when present**,
+  because a function that may be frozen mid-request is a bad place to own a TCP socket.
+- **Redis protocol** — `KV_REDIS_URL`, e.g.
+  `rediss://default:<password>@<host>.example.com:6379`. Spoken over TCP through the
+  `redis` package.
+
+**The Vercel Marketplace Redis integrations give you the connection URL and no REST
+endpoint at all.** If you provision Redis from the Marketplace, the protocol variable is
+the only one you will have — set it and leave the REST pair unset.
+
+> **Custom Prefix tip.** When you connect a Marketplace database to the project, Vercel
+> asks for an environment-variable prefix. Enter **`KV`** and the connection URL lands as
+> `KV_REDIS_URL`, which is exactly what this code reads — no aliasing, no copy-paste of a
+> credential. With a different prefix, add `KV_REDIS_URL` (or `REDIS_URL`) yourself,
+> pointing at the same value.
+
+`GET /discovery/health` reports which one is live as `durableStore.transport`
+(`"rest"`, `"redis"`, or `null` when unconfigured). The password never appears there:
+`host` is host-only and every error string is scrubbed of credentials before it is
+returned.
+
+**Connections and the plan cap.** The protocol transport opens **one** connection per
+warm function instance: nothing connects at module load, the first request that needs the
+store connects, concurrent requests on a cold instance share that single in-flight
+connect, and the client is then reused for the life of the instance rather than closed per
+request. A connection that has gone away — idle timeout, server restart — is detected and
+rebuilt once, transparently. This matters: the free tiers cap at around 30 connections.
 
 ---
 
@@ -114,8 +150,9 @@ the catalog through the write path below.
 
 ### `kv` — durable and shared
 
-Set `KV_REST_API_URL` + `KV_REST_API_TOKEN` (Vercel Marketplace → any Redis integration,
-or Upstash directly) and the catalog gains a shared, persistent layer:
+Point the deployment at a Redis — either `KV_REST_API_URL` + `KV_REST_API_TOKEN`, or
+`KV_REDIS_URL` (see [above](#two-ways-to-reach-redis-and-which-one-you-get)) — and the
+catalog gains a shared, persistent layer:
 
 - **Cold start**: seed corpus first, then every record in the store. Store records win on
   a shared `id`, and because `seeded` is re-derived on each upsert, a real announcement
@@ -180,7 +217,9 @@ curl -s -X POST https://sextants.dev/discovery/resources \
 ```
 
 Expected on a healthy read-only deployment: `health` reports `"mode": "seed"`,
-`"writable": false` and a non-zero `records`; step 7 prints `200 application/json`.
+`"writable": false`, `durableStore.transport: null` and a non-zero `records`; step 7
+prints `200 application/json`. With a store attached it reports `"mode": "kv"` and
+`durableStore.transport` of `"rest"` or `"redis"`.
 
 ---
 
@@ -196,6 +235,15 @@ styles, `_explain`, CORS, the preflight, cache headers, the write path in all fo
 states, graceful degradation on a broken store, and the `vercel.json` rewrite ordering.
 
 `npx vercel dev` is the more faithful check but needs an authenticated Vercel account.
+
+The durable store has its own suite in `test/store-transport.test.mjs` — transport
+selection, credential scrubbing and graceful degradation run with no Redis at all. The
+end-to-end round trip skips unless you point it at one:
+
+```bash
+docker run -d -p 6399:6379 redis:7-alpine
+SEXTANT_TEST_REDIS_URL=redis://127.0.0.1:6399 npm test
+```
 
 ---
 
