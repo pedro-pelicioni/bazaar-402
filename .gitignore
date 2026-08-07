@@ -7,3 +7,4 @@ dist/
 .catalog.json
 .vite/
 coverage/
+_probe_tmp.mjs

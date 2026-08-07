@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "SEXTANT agent surface — MCP server + x402 payment client for the Stellar Bazaar",
+  "description": "SEXTANT agent surface \u2014 MCP server + x402 payment client for the Stellar Bazaar",
   "bin": {
     "sextant-mcp": "./src/mcp-server.mjs",
     "sextant": "./src/cli.mjs"
@@ -27,5 +27,6 @@
     "@x402/stellar": "^2.21.0",
     "picocolors": "^1.1.1",
     "zod": "^3.25.76"
-  }
+  },
+  "license": "Apache-2.0"
 }
