@@ -8,7 +8,7 @@
 
 **The facilitator-side Bazaar discovery layer for x402 — the piece that does not exist in public code today — and the whole payment loop around it, running end to end on Stellar testnet.**
 
-`Apache-2.0` · `stellar:testnet` · **20 settled transactions** · **70/70 tests passing**
+`Apache-2.0` · `stellar:testnet` · **14 settled x402 payments** · **84 tests, 0 failing**
 
 Stellar Summit SP 2026 — sub-lane 3A, Agentic Payments (x402 / MPP)
 
@@ -28,7 +28,7 @@ You do not have to take any claim in this README on trust. Every one of them is 
 |---|---|---|
 | Payments really settle on Stellar | Open [`c1acc578…`](https://stellar.expert/explorer/testnet/tx/c1acc578032a3a06a88603f971d871703f45b1246e0f1aa8862500495edbfba6) → `successful: true` | 10s |
 | The buyer needs **zero XLM** — fees are sponsored | On that transaction, `fee_account` is the facilitator's `FEEPAYER`, not the payer | 15s |
-| Catalog integrity is real, not decorative | `npm test` → 70 passed, 0 failed (66 of them adversarial) | 30s |
+| Catalog integrity is real, not decorative | `npm test` → 84 tests, 0 failing (66 of them adversarial) | 30s |
 | **You can actually run it** | `npm install && npm run setup` — no captcha, no faucet, no API key | 2 min |
 
 That last row is the one worth pausing on. Almost every x402-on-Stellar project requires a
@@ -73,7 +73,7 @@ Stellar anywhere else. Run the commands below and they answer.
 | Method | Endpoint | What it does |
 |---|---|---|
 | `GET` | [`/discovery/resources`](https://sextants.dev/discovery/resources?limit=3) | Paginated catalog, with the spec's `type`, `payTo`, `scheme`, `network`, `extensions`, `limit`, `offset` filters |
-| `GET` | [`/discovery/search`](https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3) | Natural-language search. Returns `partialResults`, `pagination { limit, cursor }`, and `_explain` per result |
+| `GET` | [`/discovery/search`](https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3) | Natural-language search. Results arrive under `resources`, with `partialResults`, `pagination { limit, cursor }`, and `_explain` per result |
 | `GET` | [`/discovery/health`](https://sextants.dev/discovery/health) | Catalog mode, record counts, durable-store transport, and the commit being served |
 | `POST` | `/discovery/resources` | Auto-cataloging. Requires `Authorization: Bearer <SEXTANT_WRITE_TOKEN>` |
 | any | `/discovery/<anything else>` | `404` JSON naming the endpoints that do exist — never HTML, never a silent `200` |
@@ -85,14 +85,17 @@ a non-null, human-readable `reason` that names what to do about it.
 ```bash
 # Natural-language search over the catalog, ranked
 curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' | jq \
-  '.items[] | {id, score: ._score, name: .resource.serviceName}'
+  '.resources[] | {resource, score: ._score, name: .serviceName}'
 
 # The full score breakdown on the top hit — BM25 / completeness / settlements / recency
 curl -s 'https://sextants.dev/discovery/search?query=convert%20dollars%20to%20reais&limit=1' \
-  | jq '.items[0]._explain'
+  | jq '.resources[0]._explain'
 
-# List, with the spec filters
-curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' | jq '.total, .items[].id'
+# List, with the spec filters. Note the envelopes differ deliberately: the list
+# endpoint returns `items` with offset pagination, search returns `resources`
+# with a cursor — that asymmetry is the spec's, not ours.
+curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' \
+  | jq '.total, .items[].resource'
 
 # Which mode the catalog is in, how many records, which commit is serving them
 curl -s https://sextants.dev/discovery/health | jq
@@ -118,10 +121,19 @@ be checked against the code that is actually deployed.
 cold starts; with no store configured the same code runs read-only from the seeded catalog
 and says so, rather than failing.
 
-`GET /discovery/resources` and `GET /discovery/search` are spec-exact — the same field
-names, the same `partialResults`, the same `pagination { limit, cursor }` as
-[the bazaar extension](https://github.com/x402-foundation/x402/blob/main/specs/extensions/bazaar.md)
-defines. CORS is `*` because the point is for *other people's* agents to call it.
+Both endpoints are **validated against the shipped `@x402/extensions` types** by
+`npm run verify:api`, which drives the real `withBazaar()` client at them and re-checks every
+`accepts` entry with `@x402/core`'s own `PaymentRequirementsSchema`. The two envelopes differ
+deliberately, and that asymmetry is the spec's rather than ours: the list endpoint returns
+`items` with offset pagination, search returns `resources` with a cursor.
+
+That claim used to read "spec-exact — the same field names", asserted by reading the field
+names this repo emits. It was false: search returned `items`, no item carried `accepts`, and
+`withBazaar(client).search()` handed a stock consumer `undefined`. See
+[Conformance findings](#conformance-findings). The assertion now observes what the client
+returns instead of restating what the server believes.
+
+CORS is `*` because the point is for *other people's* agents to call it.
 
 The endpoints import `packages/index` directly; the ranking and the catalog-integrity
 validation are the same code the local facilitator runs, not a reimplementation. Out of
@@ -167,7 +179,7 @@ carry the largest share of the budget. Every component maps to a numbered requir
 
 | RFP req. | In this repo | Status |
 |---|---|---|
-| **3.2 Bazaar discovery layer** — *"the core new capability"*, *"the hardest part of the scope"* | `packages/index` — spec-exact `/discovery/resources` + `/discovery/search`, BM25 hybrid ranking with a published formula and per-result `_explain`, auto-cataloging from the discovery extension, soft-drop validation, `EXTENSION-RESPONSES` reporting | Working |
+| **3.2 Bazaar discovery layer** — *"the core new capability"*, *"the hardest part of the scope"* | `packages/index` — `/discovery/resources` + `/discovery/search` readable by the stock `@x402/extensions` client, BM25 hybrid ranking with a published formula and per-result `_explain`, auto-cataloging from the discovery extension, soft-drop validation, `EXTENSION-RESPONSES` reporting | Working |
 | **3.2 catalog integrity** — *"the facilitator is a trust boundary"* | 66 adversarial tests: `routeTemplate` traversal under single / double / triple percent-encoding, `iconUrl` SSRF evasion, tag flooding, external `$ref` | 66/66 passing |
 | **3.1 Facilitator** — verify / settle / supported, fee sponsorship, self-facilitation | `apps/facilitator` — self-hosted on Apache-2.0 `@x402/stellar`, `extra.areFeesSponsored`, non-null reason on every rejection | Working, testnet |
 | **3.3 Agent-facing MCP interface** | `apps/agent` — 4 MCP tools with input **and** output schemas, 17-code error enum | Settled payments via MCP |
@@ -234,8 +246,8 @@ npm run setup      # generates accounts, issues the SXT asset, adds trustlines �
 npm run dev:all    # facilitator :4021 · index :4022 · seller :4023
 npm run dev:web    # console + landing on :5173
 npm run demo       # full loop: discover → 402 → sign → settle → 200
-npm test           # 70 tests
-npm run verify:api # 36 checks on the serverless discovery API + its routing
+npm test           # 84 tests
+npm run verify:api # 46 checks, incl. the stock withBazaar() client against the handlers
 npm run verify:conformance   # stock @x402/fetch client pays the seller, end to end
 ```
 
@@ -360,6 +372,11 @@ Each test cites the spec rule it enforces.
 
 Real hashes produced by this code, with explorer links:
 [`docs/TESTNET-TXS.md`](docs/TESTNET-TXS.md).
+
+Twenty-two in total, and the split matters: **14 are x402 payments** — the demo loop, the MCP
+agent, and the stock-client conformance run — and 8 are setup and cleanup, meaning trustlines,
+the SAC deploy, minting the test asset, and returning a legacy balance. Only the first 14 are
+evidence that the payment path works.
 
 ## License
 
