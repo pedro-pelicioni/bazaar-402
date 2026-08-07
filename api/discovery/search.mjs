@@ -1,8 +1,11 @@
 /**
  * GET /discovery/search — natural-language search over the bazaar catalog.
  *
- * Returns spec-exact `partialResults` and `pagination { limit, cursor }`, and a
- * per-result `_explain` breaking the BM25 + quality-prior score into its addends.
+ * Returns the results under `resources` — the key `SearchDiscoveryResourcesResponse`
+ * declares, NOT the `items` the list endpoint uses — plus `partialResults`,
+ * `pagination { limit, cursor }`, and a per-result `_explain` breaking the BM25 +
+ * quality-prior score into its addends. `items` is still emitted as a deprecated
+ * duplicate alias of the same array for one release.
  *
  * Vercel Function, Node.js runtime, file-based routing: this file is served at
  * `/api/discovery/search`, and vercel.json rewrites `/discovery/search` onto it ahead of

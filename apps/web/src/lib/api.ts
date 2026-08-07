@@ -2,7 +2,15 @@ import fixtureRaw from '../data/fixture.json'
 import txsRaw from '../data/testnet-txs.json'
 import integrityRaw from '../data/integrity.json'
 import { rank } from './rank'
-import type { Catalog, Explain, ExplainKey, IntegrityEntry, SextantRecord, TxEntry } from './types'
+import type {
+  Catalog,
+  Explain,
+  ExplainKey,
+  IntegrityEntry,
+  SextantRecord,
+  TxEntry,
+  WireRecord,
+} from './types'
 
 /**
  * Where the discovery API lives.
@@ -52,13 +60,22 @@ async function getJSON(path: string): Promise<unknown> {
   }
 }
 
-/** The index (or another agent's fixture) may hand us several shapes. Take them all. */
-function pickItems(payload: unknown): SextantRecord[] {
-  if (Array.isArray(payload)) return payload as SextantRecord[]
+/**
+ * The index (or another agent's fixture) may hand us several shapes. Take them all.
+ *
+ * `resources` comes FIRST deliberately: the two discovery envelopes differ on purpose —
+ * `SearchDiscoveryResourcesResponse` names the array `resources` while
+ * `DiscoveryResourcesResponse` names it `items`. SEXTANT's search endpoint currently
+ * emits both (`items` is a deprecated duplicate alias of the same array for one
+ * release), so preferring `resources` reads the spec key wherever it exists and falls
+ * back to `items` for the list endpoint and the baked fixture.
+ */
+function pickItems(payload: unknown): WireRecord[] {
+  if (Array.isArray(payload)) return payload as WireRecord[]
   const o = (payload ?? {}) as Record<string, unknown>
-  for (const key of ['items', 'resources', 'records', 'results', 'data']) {
+  for (const key of ['resources', 'items', 'records', 'results', 'data']) {
     const v = o[key]
-    if (Array.isArray(v)) return v as SextantRecord[]
+    if (Array.isArray(v)) return v as WireRecord[]
   }
   return []
 }
@@ -199,28 +216,54 @@ function normalizeExplain(raw: unknown, score?: unknown): Explain | undefined {
   return { total: round(summed || num(score), 4), parts, terms: normalizeTerms(ex.terms) }
 }
 
-/** Guard against a partly-filled record so one bad row can never blank the board. */
-function sane(r: SextantRecord): SextantRecord {
-  const url = r?.resource?.url ?? r?.id ?? 'unknown://resource'
-  const explain = normalizeExplain(r?._explain, (r as { _score?: unknown })?._score)
+/**
+ * Guard against a partly-filled record so one bad row can never blank the board, and
+ * collapse the two wire shapes onto one.
+ *
+ * The spec `DiscoveryResource` puts the URL in `resource` as a plain STRING, the
+ * presentation fields at the top level, and the money in `accepts[0]` — where x402 v2
+ * `PaymentRequirements` calls the price `amount`, not `maxAmountRequired`. The fixture
+ * (and any pre-projection record) uses the old block shape. Read whichever is there.
+ */
+function sane(r: WireRecord): SextantRecord {
+  const block = r?.resource && typeof r.resource === 'object' ? r.resource : undefined
+  const url =
+    (typeof r?.resource === 'string' ? r.resource : block?.url) || r?.id || 'unknown://resource'
+
+  const offer = Array.isArray(r?.accepts) ? (r.accepts[0] ?? {}) : {}
+  const tags = r?.tags ?? block?.tags
+  // `lastUpdated` is ISO 8601 (spec); `lastSeenAt` is epoch ms (SEXTANT-native).
+  const seenAt =
+    Number(r?.lastSeenAt) || (r?.lastUpdated ? Date.parse(r.lastUpdated) : NaN) || Date.now()
+
+  const extensions = Array.isArray(r?.extensions)
+    ? r.extensions
+    : r?.extensions && typeof r.extensions === 'object'
+      ? Object.keys(r.extensions)
+      : undefined
+
+  const explain = normalizeExplain(r?._explain, r?._score)
   const out: SextantRecord = {
-    ...r,
+    ...(r as Partial<SextantRecord>),
     id: r?.id ?? url,
     resource: {
       url,
-      serviceName: r?.resource?.serviceName || url.replace(/^https?:\/\//, ''),
-      tags: Array.isArray(r?.resource?.tags) ? r.resource.tags.slice(0, 16) : [],
-      description: r?.resource?.description ?? '',
-      iconUrl: r?.resource?.iconUrl,
+      serviceName: r?.serviceName || block?.serviceName || url.replace(/^https?:\/\//, ''),
+      tags: Array.isArray(tags) ? tags.slice(0, 16) : [],
+      description: r?.description ?? block?.description ?? '',
+      iconUrl: r?.iconUrl ?? block?.iconUrl,
     },
     type: r?.type === 'mcp' ? 'mcp' : 'http',
-    network: r?.network ?? 'stellar:testnet',
-    scheme: r?.scheme ?? 'exact',
-    payTo: r?.payTo ?? '',
-    asset: r?.asset ?? '',
+    network: r?.network ?? offer.network ?? 'stellar:testnet',
+    scheme: r?.scheme ?? offer.scheme ?? 'exact',
+    payTo: r?.payTo ?? offer.payTo ?? '',
+    asset: r?.asset ?? offer.asset ?? '',
     // x402 v2 renamed this to `amount`; v1 (and CONTRACT.md) says `maxAmountRequired`
-    maxAmountRequired: String(r?.amount ?? r?.maxAmountRequired ?? '0'),
-    lastSeenAt: Number(r?.lastSeenAt) || Date.now(),
+    maxAmountRequired: String(
+      offer.amount ?? r?.amount ?? offer.maxAmountRequired ?? r?.maxAmountRequired ?? '0',
+    ),
+    extensions,
+    lastSeenAt: seenAt,
     settlements: Number(r?.settlements) || 0,
   }
   // `...r` carried the index's raw dialect through; replace it with the board's,

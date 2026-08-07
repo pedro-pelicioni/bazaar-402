@@ -17,7 +17,7 @@ Nothing about local development changes. `npm run dev:all` still runs the index 
 | `/`, `/console`, assets | `apps/web/dist` | SPA, via the catch-all rewrite |
 | `GET /discovery/resources` | `api/discovery/resources.mjs` | filters + offset pagination |
 | `POST /discovery/resources` | `api/discovery/resources.mjs` | auto-cataloging — off unless configured |
-| `GET /discovery/search` | `api/discovery/search.mjs` | ranked, `partialResults`, cursor |
+| `GET /discovery/search` | `api/discovery/search.mjs` | ranked, results under `resources`, `partialResults`, cursor |
 | `GET /discovery/health` | `api/discovery/health.mjs` | mode, record count, commit |
 
 Everything under `/discovery/*` belongs to the API. An unknown path there returns 404
@@ -182,20 +182,25 @@ Replace `sextants.dev` with your own deployment URL.
 # 1. Which mode is live, how many records, which commit
 curl -s https://sextants.dev/discovery/health | jq
 
-# 2. Search — ranked, with the score breakdown
+# 2. Search — ranked, with the score breakdown. NOTE the array is `resources`, not
+#    `items`: the search and list envelopes differ deliberately (see CONTRACT.md).
 curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=3' | jq \
-  '.items[] | {id, score: ._score, name: .resource.serviceName}'
+  '.resources[] | {resource, name: .serviceName, score: ._score, price: .accepts[0].amount}'
 
 # 3. The full _explain on the top hit
 curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=1' \
-  | jq '.items[0]._explain'
+  | jq '.resources[0]._explain'
 
-# 4. List with filters
-curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' | jq '.total, .items[].id'
+# 4. List with filters — the LIST endpoint uses `items` and offset pagination
+curl -s 'https://sextants.dev/discovery/resources?type=mcp&limit=5' | jq '.total, .items[].resource'
 
 # 5. Cursor pagination
 CURSOR=$(curl -s 'https://sextants.dev/discovery/search?query=stellar&limit=2' | jq -r .pagination.cursor)
-curl -s "https://sextants.dev/discovery/search?query=stellar&limit=2&cursor=$CURSOR" | jq '.items[].id'
+curl -s "https://sextants.dev/discovery/search?query=stellar&limit=2&cursor=$CURSOR" | jq '.resources[].id'
+
+# 5b. What a stock consumer sees: the payable offer, straight off a search hit
+curl -s 'https://sextants.dev/discovery/search?query=invoice%20ocr&limit=1' \
+  | jq '.resources[0] | {resource, x402Version, lastUpdated, accepts}'
 
 # 6. CORS preflight — must answer 204 with Access-Control-Allow-Origin: *
 curl -s -i -X OPTIONS https://sextants.dev/discovery/resources | head -8

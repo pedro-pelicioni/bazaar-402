@@ -14,12 +14,28 @@
  * Real symbols used (verified against node_modules, not invented):
  *   @x402/extensions -> declareDiscoveryExtension(config) -> { bazaar: { info, schema } }
  *                       validateRouteTemplate(t) -> returns the template when valid, else undefined
+ *   @x402/core/http  -> encodePaymentRequiredHeader / encodePaymentResponseHeader
+ *                       decodePaymentSignatureHeader
  *
  * x402 v2 wire shapes (verified in @x402/core/dist/esm/x402Client-*.d.mts):
  *   PaymentRequired = { x402Version, error?, resource: ResourceInfo, accepts: PaymentRequirements[], extensions? }
  *   PaymentRequirements = { scheme, network, asset, amount, payTo, maxTimeoutSeconds, extra }
  *   PaymentPayload = { x402Version, resource?, accepted: PaymentRequirements, payload, extensions? }
  *   ResourceInfo = { url, description?, mimeType?, serviceName?, tags?, iconUrl? }
+ *
+ * x402 v2 HTTP transport (specs/transports-v2/http.md):
+ *   402 challenge  -> response header `PAYMENT-REQUIRED`  — "the canonical HTTP transport
+ *                     location for the PaymentRequired object". The body is explicitly "a
+ *                     server implementation concern"; the spec's own example ships `{}`.
+ *   signed payload -> request  header `PAYMENT-SIGNATURE`
+ *   settlement     -> response header `PAYMENT-RESPONSE`
+ * We use the SDK's own codecs for all three rather than hand-rolling base64, so the wire
+ * format cannot drift from what a stock client decodes. The v1 spellings (`X-PAYMENT`,
+ * `X-PAYMENT-RESPONSE`) and the JSON challenge body are kept purely for backward
+ * compatibility with older clients — nothing here depends on them.
+ *
+ * `scripts/verify-conformance.mjs` proves this by driving an unmodified @x402/fetch client
+ * through the whole loop; `npm run verify:conformance`.
  *
  * Port: 4023
  */
@@ -30,6 +46,12 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import { declareDiscoveryExtension, validateRouteTemplate } from "@x402/extensions";
+import {
+  PAYMENT_REQUIRED_CACHE_CONTROL,
+  decodePaymentSignatureHeader,
+  encodePaymentRequiredHeader,
+  encodePaymentResponseHeader,
+} from "@x402/core/http";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..", "..", "..");
@@ -315,8 +337,8 @@ function requirementsFor(route) {
   };
 }
 
-/** The full HTTP 402 body (x402 v2 PaymentRequired). */
-function paymentRequiredBody(route, error) {
+/** The x402 v2 `PaymentRequired` object for a route. */
+function paymentRequiredFor(route, error) {
   return {
     x402Version: X402_VERSION,
     error,
@@ -326,9 +348,36 @@ function paymentRequiredBody(route, error) {
   };
 }
 
-function decodePaymentHeader(header) {
-  const json = Buffer.from(String(header), "base64").toString("utf8");
-  return JSON.parse(json);
+/**
+ * Answer 402 the way the v2 HTTP transport specifies: the `PaymentRequired` object goes in
+ * the `PAYMENT-REQUIRED` header, base64-encoded with the SDK's own encoder.
+ *
+ * The same object is ALSO mirrored into the JSON body. That is backward compatibility for
+ * pre-header clients and a courtesy to anyone reading the wire with curl — it is not the
+ * protocol. `@x402/core` only reads a body challenge when `x402Version === 1`, so a client
+ * that finds nothing in the header finds nothing at all, which is exactly the failure this
+ * seller used to produce.
+ */
+function send402(res, route, error) {
+  const paymentRequired = paymentRequiredFor(route, error);
+  return res
+    .status(402)
+    .set("PAYMENT-REQUIRED", encodePaymentRequiredHeader(paymentRequired))
+    .set("Cache-Control", PAYMENT_REQUIRED_CACHE_CONTROL)
+    .json(paymentRequired);
+}
+
+/**
+ * Read the signed payload from wherever the client put it.
+ * v2 clients send `PAYMENT-SIGNATURE`; `X-PAYMENT` is the v1 spelling, still accepted.
+ */
+function extractPaymentHeader(req) {
+  const value = req.headers["payment-signature"] ?? req.headers["x-payment"];
+  if (!value) return null;
+  return {
+    name: req.headers["payment-signature"] ? "PAYMENT-SIGNATURE" : "X-PAYMENT",
+    value: Array.isArray(value) ? value[0] : value,
+  };
 }
 
 async function callFacilitator(path, body) {
@@ -347,24 +396,20 @@ async function callFacilitator(path, body) {
 
 function paywall(route) {
   return async (req, res, next) => {
-    const header = req.headers["x-payment"];
+    const header = extractPaymentHeader(req);
 
     if (!header) {
-      return res
-        .status(402)
-        .set("Cache-Control", "no-store")
-        .json(paymentRequiredBody(route, "Payment required to access this resource."));
+      return send402(res, route, "PAYMENT-SIGNATURE header is required.");
     }
 
     let paymentPayload;
     try {
-      paymentPayload = decodePaymentHeader(header);
+      paymentPayload = decodePaymentSignatureHeader(header.value);
     } catch (e) {
-      return res.status(402).json(
-        paymentRequiredBody(
-          route,
-          `The X-PAYMENT header is not valid base64-encoded JSON: ${e.message}`,
-        ),
+      return send402(
+        res,
+        route,
+        `The ${header.name} header is not valid base64-encoded JSON: ${e.message}`,
       );
     }
 
@@ -377,14 +422,11 @@ function paywall(route) {
       paymentRequirements.asset !== expected.asset ||
       BigInt(paymentRequirements.amount ?? 0) < BigInt(expected.amount)
     ) {
-      return res
-        .status(402)
-        .json(
-          paymentRequiredBody(
-            route,
-            "The payment requirements echoed in X-PAYMENT do not match this resource's price, asset or recipient.",
-          ),
-        );
+      return send402(
+        res,
+        route,
+        `The payment requirements echoed in ${header.name} do not match this resource's price, asset or recipient.`,
+      );
     }
 
     try {
@@ -398,7 +440,7 @@ function paywall(route) {
         const reason =
           verify.json?.invalidReason ?? "Facilitator rejected the payment without a reason.";
         console.log(`[seller] verify rejected: ${reason}`);
-        return res.status(402).json(paymentRequiredBody(route, reason));
+        return send402(res, route, reason);
       }
 
       const settle = await callFacilitator("/settle", {
@@ -411,14 +453,15 @@ function paywall(route) {
         const reason =
           settle.json?.errorReason ?? "Facilitator failed to settle the payment without a reason.";
         console.log(`[seller] settle failed: ${reason}`);
-        return res.status(402).json(paymentRequiredBody(route, reason));
+        return send402(res, route, reason);
       }
 
       // Forward the settlement receipt and any extension responses to the client.
-      res.set(
-        "X-PAYMENT-RESPONSE",
-        Buffer.from(JSON.stringify(settle.json), "utf8").toString("base64"),
-      );
+      // `PAYMENT-RESPONSE` is the v2 header a stock client reads first; `X-PAYMENT-RESPONSE`
+      // is the v1 spelling, kept so older clients still see the receipt.
+      const receipt = encodePaymentResponseHeader(settle.json);
+      res.set("PAYMENT-RESPONSE", receipt);
+      res.set("X-PAYMENT-RESPONSE", receipt);
       const extResponses = settle.headers?.get?.("EXTENSION-RESPONSES");
       if (extResponses) res.set("EXTENSION-RESPONSES", extResponses);
 
@@ -428,14 +471,7 @@ function paywall(route) {
       req.x402 = settle.json;
       return next();
     } catch (e) {
-      return res
-        .status(402)
-        .json(
-          paymentRequiredBody(
-            route,
-            `Could not reach the facilitator at ${FACILITATOR_URL}: ${e.message}`,
-          ),
-        );
+      return send402(res, route, `Could not reach the facilitator at ${FACILITATOR_URL}: ${e.message}`);
     }
   };
 }
@@ -445,11 +481,25 @@ function paywall(route) {
 // ---------------------------------------------------------------------------
 
 const app = express();
+// A browser client can only read the x402 headers if they are explicitly exposed, and can
+// only send PAYMENT-SIGNATURE if preflight allows it. Both lists carry the v2 names first
+// and the v1 spellings after.
 app.use(
   cors({
     origin: true,
-    exposedHeaders: ["X-PAYMENT-RESPONSE", "EXTENSION-RESPONSES"],
-    allowedHeaders: ["content-type", "x-payment"],
+    exposedHeaders: [
+      "PAYMENT-REQUIRED",
+      "PAYMENT-RESPONSE",
+      "X-PAYMENT-RESPONSE",
+      "EXTENSION-RESPONSES",
+    ],
+    allowedHeaders: [
+      "content-type",
+      "accept",
+      "payment-signature",
+      "x-payment",
+      "access-control-expose-headers",
+    ],
   }),
 );
 app.use(express.json({ limit: "4mb" }));

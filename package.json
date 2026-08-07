@@ -1,7 +1,7 @@
 {
   "name": "sextant",
   "version": "1.0.0",
-  "description": "SEXTANT — find what to pay for on Stellar. Self-hosted x402 facilitator, paid API seller and a bazaar discovery index.",
+  "description": "SEXTANT \u2014 find what to pay for on Stellar. Self-hosted x402 facilitator, paid API seller and a bazaar discovery index.",
   "type": "module",
   "private": true,
   "license": "Apache-2.0",
@@ -23,9 +23,11 @@
     "cleanup": "node scripts/cleanup-legacy-asset.mjs",
     "test": "node scripts/run-tests.mjs",
     "verify:api": "node scripts/verify-serverless.mjs",
+    "verify:conformance": "node scripts/verify-conformance.mjs",
     "test:agent": "node --test apps/agent/src/replay-guard.test.mjs",
     "demo:agent": "node apps/agent/src/cli.mjs",
-    "mcp": "node apps/agent/src/mcp-server.mjs"
+    "mcp": "node apps/agent/src/mcp-server.mjs",
+    "check:bazaar": "node scripts/check-bazaar-client.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

@@ -57,7 +57,7 @@ const ROWS: Row[] = [
     verdict: 'Live',
     ok: true,
     parts: [
-      'spec-exact catalog and search',
+      'readable by the stock @x402/extensions client',
       'soft-drop validation at the edge',
       'BM25 + metadata + settlements + recency',
       'every result explains its own score',

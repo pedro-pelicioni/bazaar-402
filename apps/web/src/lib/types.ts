@@ -6,6 +6,60 @@ export type ResourceBlock = {
   description?: string
 }
 
+/**
+ * What the discovery API actually puts on the wire, before `sane()` normalises it.
+ *
+ * Two shapes arrive here and both must work:
+ *
+ *  · the spec `DiscoveryResource` (`@x402/extensions`) — `resource` is a URL STRING,
+ *    money lives in `accepts[0]` as x402 v2 `PaymentRequirements` (`amount`, not
+ *    `maxAmountRequired`), the timestamp is `lastUpdated` in ISO 8601, and
+ *    serviceName / description / tags / iconUrl sit at the TOP LEVEL;
+ *  · the baked fixture and any older SEXTANT record — `resource` is a block, the money
+ *    fields are flat, the timestamp is `lastSeenAt` in epoch ms.
+ *
+ * `sane()` collapses both onto `SextantRecord`, which is the board's own shape.
+ */
+export type WirePaymentRequirements = {
+  scheme?: string
+  network?: string
+  asset?: string
+  /** x402 v2 */
+  amount?: string
+  /** x402 v1 */
+  maxAmountRequired?: string
+  payTo?: string
+  maxTimeoutSeconds?: number
+}
+
+export type WireRecord = {
+  id?: string
+  resource?: ResourceBlock | string
+  type?: string
+  x402Version?: number
+  accepts?: WirePaymentRequirements[]
+  lastUpdated?: string
+  serviceName?: string
+  description?: string
+  tags?: string[]
+  iconUrl?: string
+  network?: string
+  scheme?: string
+  payTo?: string
+  asset?: string
+  maxAmountRequired?: string
+  amount?: string
+  input?: Record<string, unknown>
+  output?: Record<string, unknown>
+  routeTemplate?: string
+  extensions?: string[] | Record<string, unknown>
+  lastSeenAt?: number
+  settlements?: number
+  seeded?: boolean
+  _score?: number
+  _explain?: unknown
+}
+
 export type SextantRecord = {
   id: string
   resource: ResourceBlock
