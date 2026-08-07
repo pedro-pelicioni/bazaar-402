@@ -23,6 +23,7 @@
     "cleanup": "node scripts/cleanup-legacy-asset.mjs",
     "test": "node scripts/run-tests.mjs",
     "verify:api": "node scripts/verify-serverless.mjs",
+    "verify:conformance": "node scripts/verify-conformance.mjs",
     "test:agent": "node --test apps/agent/src/replay-guard.test.mjs",
     "demo:agent": "node apps/agent/src/cli.mjs",
     "mcp": "node apps/agent/src/mcp-server.mjs"

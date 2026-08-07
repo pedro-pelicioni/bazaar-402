@@ -171,7 +171,7 @@ carry the largest share of the budget. Every component maps to a numbered requir
 | **3.2 catalog integrity** — *"the facilitator is a trust boundary"* | 66 adversarial tests: `routeTemplate` traversal under single / double / triple percent-encoding, `iconUrl` SSRF evasion, tag flooding, external `$ref` | 66/66 passing |
 | **3.1 Facilitator** — verify / settle / supported, fee sponsorship, self-facilitation | `apps/facilitator` — self-hosted on Apache-2.0 `@x402/stellar`, `extra.areFeesSponsored`, non-null reason on every rejection | Working, testnet |
 | **3.3 Agent-facing MCP interface** | `apps/agent` — 4 MCP tools with input **and** output schemas, 17-code error enum | Settled payments via MCP |
-| **3.6 Conformance** — *"drift, not inability, is the failure mode being screened for"* | Three wire-level divergences found by reading shipped code | [Documented below](#conformance-findings) |
+| **3.6 Conformance** — *"drift, not inability, is the failure mode being screened for"* | `npm run verify:conformance` — an **unmodified** `@x402/fetch` client driven through a real 402 → sign → settle → 200. It caught v1 drift in our own seller | [Documented below](#conformance) |
 | **3.2 seller helpers** — per-parameter descriptions that make an endpoint legible to an agent | `apps/seller`, declared via `declareDiscoveryExtension` | Working |
 
 **What we deliberately did not build**, and why: no on-chain registry (the RFP itself calls
@@ -236,6 +236,7 @@ npm run dev:web    # console + landing on :5173
 npm run demo       # full loop: discover → 402 → sign → settle → 200
 npm test           # 70 tests
 npm run verify:api # 36 checks on the serverless discovery API + its routing
+npm run verify:conformance   # stock @x402/fetch client pays the seller, end to end
 ```
 
 No API keys. No captcha. No mainnet. No real money.
@@ -266,25 +267,73 @@ forever — with four unimplemented mitigations ranked.
 
 ---
 
-## Conformance findings
+## Conformance
 
-We built against the shipped code rather than the documentation, and reading the published
-`dist` output turned up three places where the wire format has moved and the surrounding
-material has not. All three are handled here; all three are worth an upstream issue.
+We built against the shipped `dist` rather than against examples, because on this spec the
+two disagree. Below: two places where the surrounding material lags the spec, and one place
+where **we** were the party that had drifted.
 
-1. **x402 v2 `PaymentRequirements` uses `amount`, not `maxAmountRequired`.** Resource
-   metadata also moved to `PaymentRequired.resource` as a `ResourceInfo`. The v1 layout is
-   still what most examples show. Our facilitator and index read both shapes.
-2. **v2 signs into the `PAYMENT-SIGNATURE` header, not `X-PAYMENT`.** `X-PAYMENT` is the v1
-   header and is still what much of the surrounding documentation instructs. Our client sends
-   both.
-3. **`@x402/core` accepts a challenge in the JSON body only for v1.** For v2 it expects the
-   `PAYMENT-REQUIRED` header. A v2 resource server that answers 402 with a body — the natural
-   reading — is unreachable by a stock client. We added an `accepts`-array body fallback;
-   without it the paid loop was dead on arrival against our own seller.
+### Where the documentation lags the spec
 
-Point 3 is the class of defect that only surfaces when an unmodified client is pointed at an
-independent server — which is exactly the acceptance test the RFP specifies.
+Neither of these is a defect in x402. Both match
+[`specs/transports-v2/http.md`](https://github.com/x402-foundation/x402/blob/main/specs/transports-v2/http.md)
+exactly — it is the third-party material *around* the spec that still shows v1 shapes. They
+are listed because reading `dist` instead of trusting an example is what kept us on the
+right side of them, not because anything upstream needs fixing.
+
+1. **v2 `PaymentRequirements` uses `amount`, not `maxAmountRequired`**, and resource metadata
+   moved to `PaymentRequired.resource` as a `ResourceInfo`. The v1 layout is still what most
+   examples show. Our facilitator and index read both shapes.
+2. **v2 signs into the `PAYMENT-SIGNATURE` request header, not `X-PAYMENT`.** `X-PAYMENT` is
+   the v1 spelling and is still what much of the surrounding documentation instructs. Our
+   client sends both; our seller accepts both.
+
+### Where we had drifted
+
+Our own reference seller advertised `x402Version: 2` and then answered 402 in the **v1 wire
+format**: the entire `PaymentRequired` object in the JSON body, no `PAYMENT-REQUIRED` header,
+and a paywall that read only `x-payment`.
+
+The spec is unambiguous — *"The `PAYMENT-REQUIRED` header is the canonical HTTP transport
+location for the `PaymentRequired` object"*, with response bodies called a server
+implementation concern and the spec's own 402 example shipping `{}`. `@x402/core` implements
+exactly that: `getPaymentRequiredResponse` falls back to the body **only** when
+`body.x402Version === 1`. Ours said `2`. So an unmodified `@x402/fetch` client did this:
+
+```
+THREW: Failed to parse payment requirements: Invalid payment required response
+```
+
+We had not noticed, because our own client carried a fallback that accepted any body with an
+`accepts` array. Our agent could pay our seller. Nobody else's could.
+
+**We found it by pointing a stock client at ourselves** — the acceptance test the RFP
+specifies, and the only test that could have caught it. The fix: emit `PAYMENT-REQUIRED` and
+`PAYMENT-RESPONSE` using `@x402/core`'s own codecs, accept `PAYMENT-SIGNATURE`, and **delete
+the fallback in our client**, so the bug cannot return quietly. The v1 spellings and the JSON
+body are still emitted for backward compatibility; nothing depends on them.
+
+`npm run verify:conformance` is that test, kept. It drives an unmodified `@x402/fetch` client
+— `wrapFetchWithPayment`, no SEXTANT code anywhere on the path — through a real
+402 → sign → settle → 200 against a running seller, and prints the settled hash:
+
+```
+1. Unpaid probe — the 402 must carry a PAYMENT-REQUIRED header
+  PASS  HTTP 402 Payment Required
+  PASS  PAYMENT-REQUIRED decoded — x402Version 2, 1 requirement(s)
+2. Stock client — wrapFetchWithPayment drives 402 -> sign -> settle -> 200
+  PASS  HTTP 200 in 8903ms
+3. Settlement receipt — PAYMENT-RESPONSE header
+  PASS  PAYMENT-RESPONSE decoded, success=true
+
+CONFORMANCE CHECK PASSED
+  tx  15c4fa24785ac42b1287d9336ad219552b07d7ff81cdf86c18edbc5c250e9726
+```
+
+An earlier version of this README framed the `PAYMENT-REQUIRED` requirement as an x402 defect
+worth filing upstream. It was not — the SDK was right and we were wrong. Retracting that here
+is cheaper than being corrected by a reviewer, and a conformance bug we found in ourselves,
+with a stock-client test now standing over it, is the stronger story regardless.
 
 ---
 

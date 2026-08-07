@@ -324,25 +324,26 @@ export async function payAndFetch(url, opts = {}) {
   }
 
   /* -- 2. parse the challenge -------------------------------------- */
+  //
+  // Delegate entirely to @x402/core: the `PAYMENT-REQUIRED` header for v2, a JSON body only
+  // when it declares `x402Version: 1`. We deliberately add NO fallback beyond that. An
+  // earlier version of this file accepted any body carrying an `accepts` array, which made a
+  // v2 server that answered with a body alone look payable — and the only server doing that
+  // was our own. The leniency hid the bug; removing it means a regression fails loudly here
+  // instead of silently passing. See scripts/verify-conformance.mjs.
   let paymentRequired;
   const challengeBody = await readBody(first);
   try {
     paymentRequired = httpClient.getPaymentRequiredResponse((n) => first.headers.get(n), challengeBody);
   } catch (err) {
-    // Many v2 servers put the challenge in the JSON body rather than the
-    // PAYMENT-REQUIRED header. Accept that too — it is the same object.
-    if (challengeBody && typeof challengeBody === 'object' && Array.isArray(challengeBody.accepts)) {
-      paymentRequired = { x402Version: challengeBody.x402Version ?? 2, ...challengeBody };
-    } else {
-      return done(
-        fail(
-          'SEXTANT_402_MALFORMED',
-          `The 402 response carried no decodable PAYMENT-REQUIRED header and no challenge body with an ` +
-            `\`accepts\` array: ${errText(err)}`,
-          { status: 402, body: challengeBody }
-        )
-      );
-    }
+    return done(
+      fail(
+        'SEXTANT_402_MALFORMED',
+        `The 402 response carried no decodable PAYMENT-REQUIRED header: ${errText(err)}. x402 v2 puts the ` +
+          `PaymentRequired object in that header; a JSON body is only read when it declares x402Version 1.`,
+        { status: 402, body: challengeBody }
+      )
+    );
   }
 
   const accepts = Array.isArray(paymentRequired?.accepts) ? paymentRequired.accepts : [];
