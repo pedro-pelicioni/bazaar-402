@@ -7,9 +7,17 @@
  * `mountDiscoveryRoutes`. The caller owns the Express app, the port and the listen call.
  *
  * The wire format itself lives in packages/index/src/discovery.mjs, shared with the
- * serverless binding in packages/index/src/serverless.mjs, so the deployed API and the
- * local one cannot drift apart. Query parameter names and response field names are
- * spec-exact. Do not rename them.
+ * serverless binding in packages/index/src/serverless.mjs — including the projection of
+ * an internal catalog record onto the spec's `DiscoveryResource`.
+ *
+ * KNOWN DRIFT: apps/facilitator/src/server.mjs does NOT use this module. It hand-rolls
+ * the same two routes and returns catalog.list()/search() verbatim, so the local index on
+ * :4022 still serves the internal record shape. See CONTRACT.md.
+ *
+ * Query parameter names and response field names are checked against the installed
+ * `@x402/extensions` / `@x402/core` declarations by `npm run verify:api`, which drives
+ * the real `withBazaar()` client against the handlers. Do not rename them without
+ * re-running it.
  */
 
 import { listResources, searchResources } from './discovery.mjs';

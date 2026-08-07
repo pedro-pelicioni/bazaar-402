@@ -7,7 +7,6 @@
  * files under api/ — the same modules Vercel will load — drives them with mock Node
  * `req`/`res` objects, and asserts the wire contract:
  *
- *   · response shapes are spec-exact (`items`, `partialResults`, `pagination{limit,cursor}`)
  *   · every filter narrows the result set
  *   · offset and cursor pagination walk the catalog without overlap
  *   · `_explain` is present on search results and its parts sum to `_score`
@@ -15,6 +14,18 @@
  *   · `Cache-Control` carries an s-maxage + stale-while-revalidate for the CDN
  *   · the write path degrades cleanly with no store, and works with one
  *   · vercel.json routes /discovery/* to the functions BEFORE the SPA catch-all
+ *   · the stock @x402/extensions bazaar client can read every response (section 7)
+ *
+ * That last one is the load-bearing check, and it does NOT inspect raw JSON. It imports
+ * the real `withBazaar` from `@x402/extensions`, points it at these handlers over a real
+ * socket, and asserts on what THE CLIENT hands back — then re-validates every `accepts`
+ * entry with `@x402/core`'s own `PaymentRequirementsSchema`. An earlier version of this file
+ * asserted "the shape is spec-exact" by reading the field names the repo itself emits,
+ * which is a belief, not an observation: it agreed with the bug it was meant to catch
+ * (search emitted `items` where `SearchDiscoveryResourcesResponse` declares `resources`,
+ * and no item carried `accepts`, so `withBazaar(client).search()` returned `undefined`
+ * and a stock consumer could not construct a payment). Assert on the client, not on the
+ * server's own vocabulary.
  *
  * It is deliberately NOT named *.test.mjs: `npm test` counts suites, and this is a
  * deployment check rather than a unit suite.
@@ -25,6 +36,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
+
+// The unmodified, shipped bazaar client and the unmodified, shipped payment schema.
+// Nothing in this repo is allowed to stand in for either of them.
+import { withBazaar } from '@x402/extensions/bazaar';
+import { PaymentRequirementsSchema, isPaymentRequirementsV2 } from '@x402/core/schemas';
 
 import resourcesFn from '../api/discovery/resources.mjs';
 import searchFn from '../api/discovery/search.mjs';
@@ -135,12 +151,14 @@ async function main() {
     eq(b.items.length, 5, 'limit is honoured');
   });
 
-  await check('records carry the CONTRACT.md field names', () => {
+  await check("SEXTANT's additive fields survive the spec projection", () => {
+    // These are NOT spec fields. They are the ones CONTRACT.md promises the console and
+    // the MCP agent can still read after the record is projected onto DiscoveryResource.
     const rec = list.json.items[0];
-    for (const field of ['id', 'resource', 'type', 'network', 'scheme', 'payTo', 'asset', 'maxAmountRequired', 'extensions', 'lastSeenAt', 'settlements']) {
-      assert(field in rec, `record is missing \`${field}\``);
+    for (const field of ['id', 'network', 'scheme', 'payTo', 'asset', 'maxAmountRequired', 'lastSeenAt', 'settlements']) {
+      assert(field in rec, `record is missing the additive field \`${field}\``);
     }
-    assert(typeof rec.resource.url === 'string' && rec.resource.url.length > 0, 'resource.url');
+    eq(rec.maxAmountRequired, rec.accepts[0].amount, 'the v1 mirror must agree with accepts[0].amount');
   });
 
   await check('the catalog is seeded at cold start (no configuration required)', () => {
@@ -188,8 +206,9 @@ async function main() {
     const byNetwork = await call(resourcesFn, mockReq('GET', '/discovery/resources?network=stellar%3Atestnet&limit=100'));
     assert(byNetwork.json.total > 0 && byNetwork.json.items.every((r) => r.network === 'stellar:testnet'), 'network filter');
 
+    // [spec: DiscoveryResource.extensions is a Record<string, unknown>, not a string array]
     const byExt = await call(resourcesFn, mockReq('GET', '/discovery/resources?extensions=bazaar&limit=100'));
-    assert(byExt.json.total > 0 && byExt.json.items.every((r) => r.extensions.includes('bazaar')), 'extensions filter');
+    assert(byExt.json.total > 0 && byExt.json.items.every((r) => 'bazaar' in r.extensions), 'extensions filter');
 
     const byMissingExt = await call(resourcesFn, mockReq('GET', '/discovery/resources?extensions=nope&limit=100'));
     eq(byMissingExt.json.total, 0, 'an unknown extension must match nothing');
@@ -221,21 +240,37 @@ async function main() {
     eq(search.statusCode, 200, 'status');
     const b = search.json;
     eq(b.x402Version, 2, 'x402Version');
-    assert(Array.isArray(b.items) && b.items.length > 0, '`items` must be a non-empty array');
+    // [spec: SearchDiscoveryResourcesResponse names the array `resources`; only the LIST
+    //  endpoint uses `items`. The two envelopes differ deliberately, and so does their
+    //  pagination — offset/total for list, cursor for search.]
+    assert(Array.isArray(b.resources) && b.resources.length > 0, '`resources` must be a non-empty array');
     eq(typeof b.partialResults, 'boolean', '`partialResults` must be a boolean');
     assert(b.pagination && typeof b.pagination === 'object', '`pagination` must be an object');
     assert('limit' in b.pagination, '`pagination.limit` is required');
     assert('cursor' in b.pagination, '`pagination.cursor` is required (null when unavailable)');
+    assert(!('offset' in b.pagination), 'search paginates by cursor, not offset');
     eq(b.pagination.limit, 5, 'pagination.limit');
   });
 
+  await check('`items` is still emitted as a deprecated alias of the same array', () => {
+    // One release of grace for consumers written against the old SEXTANT envelope.
+    // When this alias is removed, DELETE THIS CHECK — do not weaken it.
+    const b = search.json;
+    assert(Array.isArray(b.items), '`items` alias missing');
+    eq(b.items.length, b.resources.length, 'alias length');
+    assert(
+      b.items.every((r, i) => r.id === b.resources[i].id),
+      'the `items` alias must be the same array in the same order',
+    );
+  });
+
   await check('the query actually ranks — invoice ocr finds the OCR service first', () => {
-    const top = search.json.items[0];
-    assert(/ocr/i.test(top.resource.url) || /ocr/i.test(top.resource.serviceName ?? ''), `unexpected top hit: ${top.id}`);
+    const top = search.json.resources[0];
+    assert(/ocr/i.test(top.resource) || /ocr/i.test(top.serviceName ?? ''), `unexpected top hit: ${top.id}`);
   });
 
   await check('_explain is present and its parts sum to _score', () => {
-    for (const rec of search.json.items) {
+    for (const rec of search.json.resources) {
       assert(rec._explain && typeof rec._explain === 'object', `_explain missing on ${rec.id}`);
       const p = rec._explain.parts;
       assert(p && typeof p === 'object', `_explain.parts missing on ${rec.id}`);
@@ -256,9 +291,9 @@ async function main() {
     assert(typeof cursor === 'string' && cursor.length > 0, 'expected a continuation cursor');
 
     const p2 = await call(searchFn, mockReq('GET', `/discovery/search?query=stellar&limit=2&cursor=${encodeURIComponent(cursor)}`));
-    const ids = new Set(p1.json.items.map((r) => r.id));
-    assert(p2.json.items.length > 0, 'page 2 is empty');
-    assert(p2.json.items.every((r) => !ids.has(r.id)), 'cursor paging returned a duplicate');
+    const ids = new Set(p1.json.resources.map((r) => r.id));
+    assert(p2.json.resources.length > 0, 'page 2 is empty');
+    assert(p2.json.resources.every((r) => !ids.has(r.id)), 'cursor paging returned a duplicate');
   });
 
   await check('the last page reports partialResults=false and cursor=null', async () => {
@@ -269,8 +304,8 @@ async function main() {
 
   await check('search honours the shared filters', async () => {
     const res = await call(searchFn, mockReq('GET', '/discovery/search?query=stellar&type=mcp&limit=100'));
-    assert(res.json.items.length > 0, 'expected MCP hits for "stellar"');
-    assert(res.json.items.every((r) => r.type === 'mcp'), 'type filter leaked on search');
+    assert(res.json.resources.length > 0, 'expected MCP hits for "stellar"');
+    assert(res.json.resources.every((r) => r.type === 'mcp'), 'type filter leaked on search');
   });
 
   await check('a missing query parameter is a 400, not an empty 200', async () => {
@@ -283,7 +318,7 @@ async function main() {
   await check('an empty query browses the catalog by the quality prior', async () => {
     const res = await call(searchFn, mockReq('GET', '/discovery/search?query=&limit=5'));
     eq(res.statusCode, 200, 'status');
-    eq(res.json.items.length, 5, 'browse returns results');
+    eq(res.json.resources.length, 5, 'browse returns results');
   });
 
   await check('POST to /discovery/search is 405 with an Allow header', async () => {
@@ -389,7 +424,7 @@ async function main() {
       const found = mockRes();
       await searchHandler(mockReq('GET', '/discovery/search?query=echoes%20a%20payload&limit=5'), found, env);
       eq(found.statusCode, 200, 'search status');
-      assert(found.json.items.some((r) => r.id === SAMPLE.resource.url), 'the persisted record is not discoverable');
+      assert(found.json.resources.some((r) => r.id === SAMPLE.resource.url), 'the persisted record is not discoverable');
 
       const health = mockRes();
       await healthHandler(mockReq('GET', '/discovery/health'), health, env);
@@ -438,7 +473,7 @@ async function main() {
       const res = mockRes();
       await searchHandler(mockReq('GET', '/discovery/search?query=invoice&limit=3'), res, KV_ENV);
       eq(res.statusCode, 200, 'reads must still succeed');
-      assert(res.json.items.length > 0, 'the seeded catalog should still answer');
+      assert(res.json.resources.length > 0, 'the seeded catalog should still answer');
 
       const health = mockRes();
       await healthHandler(mockReq('GET', '/discovery/health'), health, KV_ENV);
@@ -570,7 +605,7 @@ async function main() {
       assert(/application\/json/.test(res.headers.get('content-type') ?? ''), 'content-type');
       eq(res.headers.get('access-control-allow-origin'), '*', 'CORS over the wire');
       const body = await res.json();
-      assert(body.items.length > 0 && body.items[0]._explain, 'ranked items with _explain');
+      assert(body.resources.length > 0 && body.resources[0]._explain, 'ranked resources with _explain');
     });
 
     await check('GET /discovery/resources over HTTP honours filters', async () => {
@@ -604,6 +639,151 @@ async function main() {
       const body = await res.json();
       eq(body.mode, 'seed', 'mode');
       assert(body.records > 0, 'records');
+    });
+
+    /* ---------- 7. the STOCK @x402/extensions bazaar client ---------- */
+    console.log('\nstock @x402/extensions withBazaar() client (RFP 3.6: unmodified canonical client)');
+
+    // Exactly the three lines from the package's own README, against our handlers.
+    // `withBazaar` returns `await response.json()` untransformed, so whatever it hands
+    // back IS our wire format seen through the declared types.
+    const bazaar = withBazaar({
+      url: origin,
+      extensions: {},
+      createAuthHeaders: async () => ({ headers: {} }),
+    }).extensions.bazaar;
+
+    await check('search({query}) returns a real, iterable `resources` array', async () => {
+      const out = await bazaar.search({ query: 'invoice ocr', limit: 5 });
+      // This is the assertion the old harness could not make. `resources` was undefined
+      // and `for (const r of out.resources)` threw a TypeError.
+      assert(Array.isArray(out.resources), '`resources` is not an array — a stock client cannot iterate the result');
+      assert(out.resources.length > 0, '`resources` is empty for a query with known matches');
+      let iterated = 0;
+      for (const _r of out.resources) iterated++;
+      eq(iterated, out.resources.length, 'iteration must visit every result');
+      eq(out.x402Version, 2, 'x402Version');
+      eq(typeof out.partialResults, 'boolean', 'partialResults');
+      assert(out.pagination && 'cursor' in out.pagination, 'pagination.cursor');
+    });
+
+    await check('listResources() returns the declared `items` array', async () => {
+      const out = await bazaar.listResources({ limit: 5 });
+      assert(Array.isArray(out.items) && out.items.length === 5, '`items` must be the list array');
+      assert(out.pagination && typeof out.pagination.offset === 'number' && typeof out.pagination.total === 'number',
+        'the list endpoint paginates by offset/total');
+    });
+
+    /**
+     * Assert one result against the shipped `DiscoveryResource` declaration
+     * (@x402/extensions/dist/esm/index-*.d.mts).
+     */
+    const assertDiscoveryResource = (r, where) => {
+      assert(typeof r.resource === 'string' && /^https?:\/\//.test(r.resource),
+        `${where}: \`resource\` must be a URL STRING, got ${typeof r.resource}`);
+      assert(typeof r.type === 'string' && r.type.length > 0, `${where}: \`type\``);
+      eq(r.x402Version, 2, `${where}: \`x402Version\``);
+      assert(Array.isArray(r.accepts) && r.accepts.length > 0,
+        `${where}: \`accepts\` is missing — a client cannot construct a payment from this result`);
+      assert(typeof r.lastUpdated === 'string' && !Number.isNaN(Date.parse(r.lastUpdated)),
+        `${where}: \`lastUpdated\` must be an ISO 8601 string, got ${JSON.stringify(r.lastUpdated)}`);
+      eq(r.lastUpdated, new Date(r.lastUpdated).toISOString(), `${where}: \`lastUpdated\` must round-trip as ISO 8601`);
+      assert(r.extensions && typeof r.extensions === 'object' && !Array.isArray(r.extensions),
+        `${where}: \`extensions\` must be an object map, not an array`);
+      for (const [field, type] of [['serviceName', 'string'], ['description', 'string'], ['iconUrl', 'string']]) {
+        if (r[field] !== undefined) eq(typeof r[field], type, `${where}: \`${field}\` is top-level and must be a ${type}`);
+      }
+      if (r.tags !== undefined) assert(Array.isArray(r.tags), `${where}: \`tags\` must be a top-level array`);
+    };
+
+    await check('every search result validates as a spec DiscoveryResource', async () => {
+      const out = await bazaar.search({ query: 'stellar', limit: 20 });
+      out.resources.forEach((r, i) => assertDiscoveryResource(r, `search[${i}]`));
+      // The presentation metadata must actually survive the move to the top level —
+      // an all-`undefined` projection would pass a shape check and still be useless.
+      assert(out.resources.some((r) => typeof r.serviceName === 'string' && r.serviceName.length > 0),
+        'no result carries a top-level serviceName');
+      assert(out.resources.some((r) => Array.isArray(r.tags) && r.tags.length > 0),
+        'no result carries top-level tags');
+    });
+
+    await check('every listed resource validates as a spec DiscoveryResource', async () => {
+      const out = await bazaar.listResources({ limit: 100 });
+      assert(out.items.length >= 25, `expected the seed corpus, got ${out.items.length}`);
+      out.items.forEach((r, i) => assertDiscoveryResource(r, `items[${i}]`));
+    });
+
+    await check("accepts[] parses as x402 v2 PaymentRequirements under @x402/core's own schema", async () => {
+      const out = await bazaar.search({ query: 'stellar', limit: 20 });
+      assert(out.resources.length > 0, 'no results to validate');
+      for (const r of out.resources) {
+        for (const [i, pr] of r.accepts.entries()) {
+          const parsed = PaymentRequirementsSchema.safeParse(pr);
+          assert(parsed.success,
+            `${r.resource} accepts[${i}] rejected by PaymentRequirementsSchema: ${JSON.stringify(parsed.error?.issues?.[0])}`);
+          // v2 names the price `amount`. `maxAmountRequired` is the v1 name and would make
+          // this entry parse as V1 — which additionally requires `resource` and
+          // `description` inside the requirement, neither of which we emit.
+          assert(isPaymentRequirementsV2(pr),
+            `${r.resource} accepts[${i}] is not v2 — v2 uses \`amount\`, not \`maxAmountRequired\``);
+          assert(!('maxAmountRequired' in pr), `${r.resource} accepts[${i}] still carries the v1 \`maxAmountRequired\``);
+          assert(typeof pr.amount === 'string' && /^\d+$/.test(pr.amount), `${r.resource} accepts[${i}].amount`);
+          assert(typeof pr.maxTimeoutSeconds === 'number', `${r.resource} accepts[${i}].maxTimeoutSeconds`);
+        }
+      }
+    });
+
+    await check('a stock consumer can go from one search hit to a payable offer', async () => {
+      // The end-to-end shape claim, stated as behaviour: search -> pick -> read the price
+      // and the recipient off `accepts[0]` with no SEXTANT-specific knowledge at all.
+      const { resources } = await bazaar.search({ query: 'invoice ocr', limit: 1 });
+      const [hit] = resources;
+      const offer = hit.accepts[0];
+      assert(new URL(hit.resource).protocol.startsWith('http'), 'the resource URL must parse');
+      assert(/^G[A-Z2-7]{55}$/.test(offer.payTo), `payTo is not a Stellar account: ${offer.payTo}`);
+      assert(offer.network.includes(':'), `network must be a CAIP-2 id, got ${offer.network}`);
+      assert(BigInt(offer.amount) >= 0n, 'amount must parse as an integer');
+      eq(offer.scheme, 'exact', 'scheme');
+    });
+
+    await check('SEXTANT extras ride along without displacing a spec field', async () => {
+      const { resources } = await bazaar.search({ query: 'invoice ocr', limit: 3 });
+      for (const r of resources) {
+        assert(typeof r._score === 'number', `_score missing on ${r.resource}`);
+        assert(r._explain && typeof r._explain === 'object', `_explain missing on ${r.resource}`);
+        assert(typeof r.settlements === 'number', `settlements missing on ${r.resource}`);
+        assert(typeof r.lastSeenAt === 'number', `lastSeenAt missing on ${r.resource}`);
+      }
+      const listed = await bazaar.listResources({ limit: 100 });
+      assert(listed.items.some((r) => r.seeded === true), '`seeded` provenance was lost in the projection');
+    });
+
+    await check('cursor paging through the stock client stays coherent', async () => {
+      // [spec: identity is the (resource.url, input.toolName) TUPLE — MCP multiplexes many
+      //  tools over one server endpoint, so `resource` alone is not unique. Both halves are
+      //  visible to a stock client: the URL in `resource`, the tool name in
+      //  `extensions.bazaar.info.input.toolName` (McpDiscoveryInfo).]
+      const key = (r) => `${r.resource}#${r.extensions?.bazaar?.info?.input?.toolName ?? ''}`;
+      const p1 = await bazaar.search({ query: 'stellar', limit: 2 });
+      assert(p1.partialResults === true && typeof p1.pagination.cursor === 'string', 'expected a continuation cursor');
+      const p2 = await bazaar.search({ query: 'stellar', limit: 2, cursor: p1.pagination.cursor });
+      const seen = new Set(p1.resources.map(key));
+      assert(p2.resources.length > 0, 'page 2 is empty');
+      assert(p2.resources.every((r) => !seen.has(key(r))), 'the client saw a duplicate across pages');
+      // …and the tuple must actually be reachable, or the client has no way to tell two
+      // tools on the same MCP endpoint apart.
+      const mcp = [...p1.resources, ...p2.resources].filter((r) => r.type === 'mcp');
+      assert(mcp.length > 0, 'expected at least one MCP record in these two pages');
+      assert(mcp.every((r) => typeof r.extensions?.bazaar?.info?.input?.toolName === 'string'),
+        'an MCP record reached the client with no toolName under extensions.bazaar.info');
+    });
+
+    await check('the client filters narrow the set the same way the raw query params do', async () => {
+      const mcp = await bazaar.search({ query: 'stellar', type: 'mcp', limit: 100 });
+      assert(mcp.resources.length > 0 && mcp.resources.every((r) => r.type === 'mcp'), 'type filter through the client');
+      const byExt = await bazaar.listResources({ extensions: 'bazaar', limit: 100 });
+      assert(byExt.items.length > 0 && byExt.items.every((r) => 'bazaar' in r.extensions),
+        'extensions filter through the client');
     });
   } finally {
     await new Promise((resolve) => server.close(resolve));
